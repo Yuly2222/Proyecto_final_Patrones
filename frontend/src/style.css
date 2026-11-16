@@ -1,0 +1,24 @@
+body { margin: 0; font-family: system-ui, sans-serif; background: #f4f6f8; color: #1d2733; }
+main { max-width: 1100px; margin: 0 auto; padding: 0 16px 40px; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; margin: 0 -16px 16px; color: #fff; }
+header.env-dev { background: #2f7d32; } header.env-test { background: #b26a00; } header.env-prod { background: #b3261e; }
+header.env-ci { background: #455a64; }
+h1 { margin: 0; font-size: 22px; } h2 { font-size: 16px; margin: 24px 0 8px; }
+.badge { background: rgba(255,255,255,.2); padding: 4px 10px; border-radius: 12px; font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+.flag { padding: 6px 10px; border-radius: 6px; font-family: monospace; font-size: 13px; cursor: pointer; }
+.flag.on { background: #d7f0d8; } .flag.off { background: #e6e9ec; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.card { background: #fff; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; border-left: 5px solid #999; }
+.card.AVAILABLE { border-color: #2f7d32; } .card.RESERVED { border-color: #b26a00; } .card.CHARGING { border-color: #1565c0; }
+.status { font-weight: 700; font-size: 13px; }
+button { padding: 6px 10px; border: 0; border-radius: 6px; background: #1565c0; color: #fff; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e3e6ea; }
+.click { cursor: pointer; } code { font-size: 11px; }
+.st.COMPLETED { color: #2f7d32; } .st.COMPENSATED { color: #b26a00; font-weight: 700; }
+.st.FAILED, .st.COMPENSATION_FAILED { color: #b3261e; font-weight: 700; }
+li.ok { color: #2f7d32; } li.fail { color: #b3261e; }
+.error { background: #fde7e7; color: #b3261e; padding: 8px; border-radius: 6px; cursor: pointer; }
+.pad { padding: 16px; }
+@media (max-width: 600px) { table { display: block; overflow-x: auto; } }

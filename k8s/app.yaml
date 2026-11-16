@@ -1,0 +1,34 @@
+# Plantilla de Deployment para cada microservicio. scripts/deploy.sh reemplaza los __MARCADORES__.
+# Hay dos "tracks" por servicio: <name>-stable (N réplicas) y <name>-canary (1 réplica, solo durante el despliegue).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: __NAME__-__TRACK__
+  labels: { app: __NAME__, track: __TRACK__ }
+spec:
+  replicas: __REPLICAS__
+  selector:
+    matchLabels: { app: __NAME__, track: __TRACK__ }
+  template:
+    metadata:
+      labels: { app: __NAME__, track: __TRACK__ }
+    spec:
+      containers:
+        - name: app
+          image: __IMAGE__
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8000 }]
+          env:
+            - { name: SERVICE, value: __SERVICE__ }
+          envFrom:
+            - configMapRef: { name: aegisvolt-config } # ENV=dev|test|prod -> tablas y log group del ambiente
+            - secretRef: { name: aws-creds }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 15
+          resources:
+            requests: { cpu: 25m, memory: 64Mi }
+            limits: { memory: 192Mi }

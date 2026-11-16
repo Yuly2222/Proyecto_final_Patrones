@@ -1,0 +1,28 @@
+# Frontend (nginx) por ambiente. Su /graphql apunta al Service "gateway" del MISMO namespace,
+# así el frontend de dev siempre habla con el backend y las flags de dev.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      containers:
+        - name: nginx
+          image: __IMAGE__
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 80 }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: NodePort # dev -> localhost:30080, test -> 30081, prod -> 30082
+  selector: { app: frontend }
+  ports: [{ port: 80, targetPort: 80, nodePort: __NODEPORT__ }]

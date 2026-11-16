@@ -1,0 +1,108 @@
+# Pre-merge: corre en cada PR hacia dev, test o prod. Los 6 jobs se marcan como "required" en la
+# regla de la rama (ver README), así el botón Merge queda bloqueado hasta que todos estén en verde.
+name: pr-checks
+on:
+  pull_request:
+    branches: [dev, test, prod]
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+
+jobs:
+  promotion-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar cadena feature/* -> dev -> test -> prod
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          ok=false
+          case "$BASE" in
+            dev)  [[ "$HEAD" == feature/* || "$HEAD" == fix/* ]] && ok=true ;;
+            test) [[ "$HEAD" == dev ]] && ok=true ;;
+            prod) [[ "$HEAD" == test ]] && ok=true ;;
+          esac
+          $ok || { echo "::error::PR '$HEAD' -> '$BASE' no permitido. Solo feature/* -> dev, dev -> test, test -> prod."; exit 1; }
+
+  lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r services/requirements-dev.txt
+      - run: python -m compileall -q services
+      - name: Validar y exportar esquema GraphQL
+        working-directory: services/gateway
+        run: PYTHONPATH=.. strawberry export-schema main:schema > schema.graphql && cat schema.graphql
+      - uses: actions/upload-artifact@v4
+        with: { name: graphql-schema, path: services/gateway/schema.graphql }
+      - name: Construir imágenes Docker
+        run: |
+          for s in reservation billing dispatch gateway; do
+            docker build --build-arg SERVICE=$s -t aegisvolt/$s:ci services
+          done
+          docker build -t aegisvolt/frontend:ci frontend
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r services/requirements-dev.txt
+      - run: pytest -v services/tests/test_unit_saga.py
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:2.5.4
+        ports: ["8000:8000"]
+    env:
+      DYNAMODB_ENDPOINT: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r services/requirements-dev.txt
+      - run: pytest -v services/tests/test_integration.py
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r services/requirements-dev.txt
+      - run: docker compose up -d --build
+      - name: Esperar a que el frontend responda
+        run: for i in $(seq 60); do curl -sf localhost:8080/health && exit 0; sleep 2; done; exit 1
+      - run: pytest -v services/tests/test_e2e.py
+        env: { E2E_URL: "http://localhost:8080" }
+      - if: failure()
+        run: docker compose logs
+
+  terraform-plan:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    defaults:
+      run: { working-directory: infra }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "1.10.5" }
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+      - name: Workspace = rama DESTINO del PR
+        run: terraform workspace select -or-create "${{ github.base_ref }}"
+      - run: terraform validate
+      - name: terraform plan
+        run: |
+          terraform plan -no-color -input=false -out=tfplan | tee plan.txt
+          { echo "### terraform plan — workspace \`${{ github.base_ref }}\`"; echo '```'; tail -n 60 plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with: { name: "tfplan-${{ github.base_ref }}", path: infra/plan.txt }
