@@ -27,9 +27,9 @@ def http_call(service: str, path: str, payload: dict | None = None):
         else:
             r = httpx.post(URLS[service] + path, json=payload, timeout=5)
     except httpx.HTTPError as e:
-        raise StepFailed(f"{service} unreachable: {e}")
+        raise StepFailed(f"{service} unreachable: {e}", retriable=True)
     if r.status_code >= 400:
-        raise StepFailed(f"{service}{path} -> {r.status_code} {r.text}")
+        raise StepFailed(f"{service}{path} -> {r.status_code} {r.text}", retriable=r.status_code >= 500)
     return r.json()
 
 

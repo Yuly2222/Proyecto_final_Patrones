@@ -14,5 +14,6 @@ def load_service(name: str):
     """Cada servicio tiene su propio main.py; se cargan con nombres distintos para no chocar."""
     spec = importlib.util.spec_from_file_location(f"{name}_main", os.path.join(ROOT, name, "main.py"))
     mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod  # strawberry resuelve las anotaciones buscando el módulo aquí
     spec.loader.exec_module(mod)
     return mod

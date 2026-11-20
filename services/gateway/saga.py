@@ -15,7 +15,12 @@ MAX_RETRIES = 3
 
 
 class StepFailed(Exception):
-    pass
+    """retriable=True: fallo transitorio (red, 5xx) -> se reintenta el mismo paso.
+    retriable=False: error de negocio (409, 402...) -> reintentar no cambia nada, se compensa."""
+
+    def __init__(self, msg: str = "", retriable: bool = False):
+        super().__init__(msg)
+        self.retriable = retriable
 
 
 def _now():
@@ -57,7 +62,15 @@ def run_saga(call: Callable[[str, str, dict], dict], connector_id: str, fleet_id
     ]
     for name, service, path, payload, status in steps:
         try:
-            res = call(service, path, payload)
+            for attempt in range(1, MAX_RETRIES + 1):  # Retriable: seguro porque cada paso es idempotente por saga_id
+                try:
+                    res = call(service, path, payload)
+                    break
+                except StepFailed as e:
+                    if not e.retriable or attempt == MAX_RETRIES:
+                        raise
+                    log("step_retry", sid, step=name, attempt=attempt, error=str(e))
+                    time.sleep(0.2 * attempt)  # backoff lineal corto
             if name == "CHARGE":
                 saga["amount"] = str(res.get("amount"))
             done.append(name)

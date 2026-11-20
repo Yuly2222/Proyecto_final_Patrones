@@ -70,3 +70,17 @@ def test_compensation_gives_up_after_max_retries():
     call_billing_fails = lambda s, p, d: (_ for _ in ()).throw(StepFailed("402")) if p == "/charge" else call(s, p, d)
     saga = run_saga(call_billing_fails, "C1", "F1", 30, MemoryLog())
     assert saga["status"] == "COMPENSATION_FAILED"
+
+
+def test_transient_step_failure_is_retried_not_compensated():
+    calls = []
+
+    def call(service, path, payload):
+        calls.append(f"{service}{path}")
+        if path == "/charge" and calls.count("billing/charge") < 3:
+            raise StepFailed("503", retriable=True)
+        return {"status": "ok", "amount": "10.50"}
+
+    saga = run_saga(call, "C1", "F1", 30, MemoryLog())
+    assert saga["status"] == "COMPLETED"
+    assert calls.count("billing/charge") == 3 and "reservation/release" not in calls
