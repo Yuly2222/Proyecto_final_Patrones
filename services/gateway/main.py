@@ -10,7 +10,7 @@ from strawberry.extensions import (AddValidationRules, MaskErrors, MaxAliasesLim
 from strawberry.fastapi import GraphQLRouter
 from strawberry.scalars import JSON
 
-from common import ENV, log, table
+from common import ENV, log, table, setup_tracing
 from common import _flags as _flag_cache
 from resilience import Bulkhead, BulkheadFull, CircuitBreaker, CircuitOpen
 from saga import StepFailed, run_saga
@@ -181,6 +181,7 @@ schema = strawberry.Schema(query=Query, mutation=Mutation, extensions=[
        MaskErrors()] if PROD else []),                           # ni detalles internos de los errores
 ])
 app = FastAPI(title="graphql-gateway")
+setup_tracing(app)
 # Solo POST con JSON: un <img>/<form> de otro sitio no puede disparar operaciones (CSRF). Sin GraphiQL en prod.
 app.include_router(GraphQLRouter(schema, allow_queries_via_get=False, graphql_ide=None if PROD else "graphiql"),
                    prefix="/graphql")

@@ -1,5 +1,5 @@
-# Se ejecuta UNA sola vez, a mano, con estado local (huevo y gallina: el bucket que guarda
-# los estados no puede guardar su propio estado antes de existir).
+# Se ejecuta UNA sola vez, con estado local (huevo y gallina: el bucket que guarda
+# los estados no puede guardar su propio estado antes de existir). Floci debe estar arriba (k8s/platform.yaml).
 #   cd infra/bootstrap && terraform init && terraform apply
 terraform {
   required_version = ">= 1.10"
@@ -9,11 +9,25 @@ terraform {
 }
 
 provider "aws" {
-  region = var.region
+  region                      = var.region
+  access_key                  = "test"
+  secret_key                  = "test"
+  skip_credentials_validation = true
+  skip_metadata_api_check     = true
+  skip_requesting_account_id  = true
+  s3_use_path_style           = true
+  endpoints {
+    s3  = var.aws_endpoint
+    sts = var.aws_endpoint
+  }
 }
 
 variable "region" {
   default = "us-east-1"
+}
+
+variable "aws_endpoint" {
+  default = "http://localhost:30566"
 }
 
 data "aws_caller_identity" "me" {}

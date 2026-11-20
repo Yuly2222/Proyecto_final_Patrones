@@ -3,7 +3,6 @@
 variable "name" {}
 variable "cidr" {}
 variable "region" {}
-variable "enable_interface_endpoints" { type = bool }
 
 data "aws_availability_zones" "az" {
   state = "available"
@@ -28,7 +27,7 @@ resource "aws_internet_gateway" "this" {
 resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = cidrsubnet(var.cidr, 8, count.index)      # x.x.0.0/24, x.x.1.0/24
+  cidr_block              = cidrsubnet(var.cidr, 8, count.index) # x.x.0.0/24, x.x.1.0/24
   availability_zone       = local.azs[count.index]
   map_public_ip_on_launch = true
   tags                    = { Name = "${var.name}-public-${count.index}", "kubernetes.io/role/elb" = "1" }
@@ -100,7 +99,7 @@ resource "aws_security_group" "endpoints" {
 }
 
 resource "aws_vpc_endpoint" "interface" {
-  for_each            = var.enable_interface_endpoints ? toset(["execute-api", "logs"]) : toset([])
+  for_each            = toset(["execute-api", "logs"])
   vpc_id              = aws_vpc.this.id
   service_name        = "com.amazonaws.${var.region}.${each.key}"
   vpc_endpoint_type   = "Interface"
@@ -131,6 +130,10 @@ resource "aws_security_group" "k8s_nodes" {
 
 output "vpc_id" {
   value = aws_vpc.this.id
+}
+
+output "execute_api_vpce_id" {
+  value = aws_vpc_endpoint.interface["execute-api"].id
 }
 
 output "private_subnet_ids" {

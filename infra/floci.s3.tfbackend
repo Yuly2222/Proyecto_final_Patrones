@@ -1,0 +1,11 @@
+# Backend S3 en Floci:  terraform init -backend-config=floci.s3.tfbackend
+# Cada workspace queda en su propia llave: env:/dev/aegisvolt/terraform.tfstate, env:/test/..., env:/prod/...
+bucket                      = "aegisvolt-tfstate-000000000000" # 000000000000 = cuenta por defecto de Floci
+endpoints                   = { s3 = "http://localhost:30566" }
+access_key                  = "test"
+secret_key                  = "test"
+use_path_style              = true
+skip_credentials_validation = true
+skip_requesting_account_id  = true
+skip_metadata_api_check     = true
+skip_region_validation      = true

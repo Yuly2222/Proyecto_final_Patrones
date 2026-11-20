@@ -18,9 +18,9 @@ resource "aws_cloudwatch_log_metric_filter" "errors" {
   log_group_name = each.value.name
   pattern        = "{ $.level = \"ERROR\" }"
   metric_transformation {
-    name      = "Errors"
-    namespace = "AegisVolt/${var.env}"
-    value     = "1"
+    name       = "Errors"
+    namespace  = "AegisVolt/${var.env}"
+    value      = "1"
     dimensions = { Service = "$.service" }
   }
 }

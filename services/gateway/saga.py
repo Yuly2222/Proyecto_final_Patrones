@@ -9,9 +9,12 @@ import time
 import uuid
 from typing import Callable
 
+from opentelemetry import trace
+
 from common import log, table
 
 MAX_RETRIES = 3
+tracer = trace.get_tracer("aegisvolt.saga")
 
 
 class StepFailed(Exception):
@@ -43,11 +46,26 @@ class SagaLog:
         self.tbl.put_item(Item=saga)
 
 
+def _traced(call, sid: str):
+    """Un span por paso/compensación (p. ej. "saga billing/refund") con el saga_id: en Jaeger se ve el flujo
+    completo y en rojo el paso que falló. Sin OpenTelemetry configurado es un no-op."""
+    def wrapper(service, path, payload):
+        with tracer.start_as_current_span(f"saga {service}{path}", attributes={"saga.id": sid}) as span:
+            try:
+                return call(service, path, payload)
+            except StepFailed as e:
+                span.set_status(trace.StatusCode.ERROR, str(e))
+                raise
+    return wrapper
+
+
 def run_saga(call: Callable[[str, str, dict], dict], connector_id: str, fleet_id: str, kwh: float,
              saga_log: SagaLog | None = None) -> dict:
     """call(service, path, payload) -> dict JSON; lanza StepFailed si el servicio responde error."""
     saga_log = saga_log or SagaLog()
     sid = str(uuid.uuid4())  # = correlation_id que viaja en todos los logs
+    trace.get_current_span().set_attribute("saga.id", sid)  # buscar en Jaeger por tag saga.id=<correlation_id>
+    call = _traced(call, sid)
     saga = {"saga_id": sid, "connector_id": connector_id, "fleet_id": fleet_id, "kwh": str(kwh),
             "status": "STARTED", "steps": [], "created_at": _now()}
     saga_log.start(saga)

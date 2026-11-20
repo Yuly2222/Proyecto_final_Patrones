@@ -44,6 +44,8 @@ jobs:
             docker build --build-arg SERVICE=$s -t aegisvolt/$s:ci services
           done
           docker build -t aegisvolt/frontend:ci frontend
+      - name: Validar Helm chart en los 3 ambientes
+        run: for e in dev test prod; do helm lint charts/aegisvolt -f charts/aegisvolt/values-$e.yaml; done
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -57,11 +59,13 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     services:
-      dynamodb:
-        image: amazon/dynamodb-local:2.5.4
-        ports: ["8000:8000"]
+      floci: # emulador de AWS efímero: tablas aegisvolt-*-ci que el test borra y recrea
+        image: floci/floci:2.5.0
+        ports: ["4566:4566"]
     env:
-      DYNAMODB_ENDPOINT: http://localhost:8000
+      AWS_ENDPOINT_URL: http://localhost:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -85,18 +89,21 @@ jobs:
         run: docker compose logs
 
   terraform-plan:
-    runs-on: ubuntu-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    # Corre en el runner del PC, donde vive Floci con el estado REAL de dev/test/prod: el plan muestra
+    # exactamente qué cambiaría en el ambiente destino. Solo PRs del mismo repo (nunca de forks) para que
+    # código ajeno no se ejecute en tu máquina.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, aegisvolt]
     defaults:
-      run: { working-directory: infra }
+      run:
+        working-directory: infra
+        shell: C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -eo pipefail {0}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-        with: { terraform_version: "1.10.5" }
+        with: { terraform_version: "1.10.5", terraform_wrapper: false }
       - run: terraform fmt -check -recursive
-      - run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+      - run: terraform init -input=false -backend-config=floci.s3.tfbackend
       - name: Workspace = rama DESTINO del PR
         run: terraform workspace select -or-create "${{ github.base_ref }}"
       - run: terraform validate

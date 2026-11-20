@@ -4,6 +4,7 @@
   prefect server start                      # UI en http://localhost:4200 (otra terminal)
   python observability/flows.py             # registra el deployment y lo corre cada 5 min
 """
+import os
 import time
 
 import boto3
@@ -14,6 +15,9 @@ from prefect.artifacts import create_markdown_artifact, create_table_artifact
 ENVS = {"dev": 30080, "test": 30081, "prod": 30082}  # NodePort del frontend de cada ambiente
 IN_FLIGHT = {"STARTED", "RESERVED", "CHARGED", "DISPATCHED", "COMPENSATING"}
 ORPHAN_AFTER_S = 300
+# Floci en Kubernetes (k8s/platform.yaml). Floci acepta cualquier llave.
+for k, v in {"AWS_ENDPOINT_URL": "http://localhost:30566", "AWS_ACCESS_KEY_ID": "test", "AWS_SECRET_ACCESS_KEY": "test"}.items():
+    os.environ.setdefault(k, v)
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 
 

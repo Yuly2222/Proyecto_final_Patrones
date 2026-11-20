@@ -1,4 +1,4 @@
-"""Crea y siembra las tablas en dynamodb-local (docker-compose y CI). En AWS las crea Terraform (infra/).
+"""Crea y siembra las tablas aegisvolt-*-ci en Floci (docker-compose y CI). En los ambientes las crea Terraform (infra/).
 Mantener los datos semilla iguales a infra/modules/dynamodb/seed.tf."""
 from common import ENV, client, table, table_name
 

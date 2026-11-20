@@ -1,0 +1,68 @@
+{{- if .Values.networkPolicies }}
+# Zero trust dentro del namespace: todo bloqueado y se abre solo lo que la arquitectura necesita.
+#   navegador -> frontend:80 -> gateway:8000 -> reservation|billing|dispatch:8000 -> Floci:4566 / Jaeger:4318
+# Nota: solo se aplican si el CNI del clúster las implementa (ver README).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {} # todos los pods del namespace
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+      ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend
+spec:
+  podSelector: { matchLabels: { app: frontend } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports: [{ port: 80 }] # el NodePort: navegador, Prefect y el smoke test del canary
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: gateway } } }]
+      ports: [{ port: 8000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway
+spec:
+  podSelector: { matchLabels: { app: gateway } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app: frontend } } }]
+      ports: [{ port: 8000 }]
+  egress:
+    - to:
+        - podSelector: { matchExpressions: [{ key: app, operator: In, values: [reservation, billing, dispatch] }] }
+      ports: [{ port: 8000 }]
+    - to: [{ namespaceSelector: { matchLabels: { name: aegisvolt-platform } } }]
+      ports: [{ port: 4566 }, { port: 4318 }] # Floci (DynamoDB, CloudWatch) y Jaeger (trazas)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: microservices
+spec:
+  podSelector: { matchExpressions: [{ key: app, operator: In, values: [reservation, billing, dispatch] }] }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app: gateway } } }] # solo el gateway: billing NO es alcanzable desde el frontend
+      ports: [{ port: 8000 }]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { name: aegisvolt-platform } } }]
+      ports: [{ port: 4566 }, { port: 4318 }]
+{{- end }}

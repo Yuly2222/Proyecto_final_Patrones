@@ -1,27 +1,33 @@
-# Stack completo en local SIN AWS (dynamodb-local). Lo usa el job e2e-tests del CI y sirve para desarrollar.
-#   docker compose up -d --build   ->   http://localhost:8080
+# Stack completo en local con Floci (emulador de AWS). Lo usa el job e2e-tests del CI y sirve para desarrollar.
+#   docker compose up -d --build   ->   http://localhost:8080   (trazas en Jaeger: http://localhost:16686)
 x-svc: &svc
   build: { context: ./services }
   environment: &env
     ENV: ci
     AWS_DEFAULT_REGION: us-east-1
-    AWS_ACCESS_KEY_ID: local
-    AWS_SECRET_ACCESS_KEY: local
-    DYNAMODB_ENDPOINT: http://dynamodb:8000
+    AWS_ACCESS_KEY_ID: test
+    AWS_SECRET_ACCESS_KEY: test
+    AWS_ENDPOINT_URL: http://floci:4566 # boto3 manda DynamoDB y CloudWatch a Floci
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
   depends_on:
     init: { condition: service_completed_successfully }
 
 services:
-  dynamodb:
-    image: amazon/dynamodb-local:2.5.4
-    command: -jar DynamoDBLocal.jar -inMemory -sharedDb
-    ports: ["8000:8000"]
+  floci:
+    image: floci/floci:2.5.0
+    ports: ["4566:4566"]
+    environment:
+      FLOCI_SERVICES_UI_ENABLED: "false" # la consola web necesita el socket de Docker; aquí no hace falta
 
-  init:  # crea y siembra las tablas aegisvolt-*-ci
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    ports: ["16686:16686"] # UI; los servicios envían las trazas por OTLP/HTTP al 4318 interno
+
+  init: # crea y siembra las tablas aegisvolt-*-ci
     build: { context: ./services, args: { SERVICE: gateway } }
     command: python local_tables.py
     environment: *env
-    depends_on: [dynamodb]
+    depends_on: [floci]
     restart: on-failure
 
   reservation:

@@ -1,5 +1,7 @@
 # Post-merge: un push a dev/test/prod SOLO puede venir de un PR fusionado (las reglas bloquean el push directo).
 # El ambiente se deduce del nombre de la rama: github.ref_name = dev | test | prod.
+# Corre en el runner instalado en el PC (Docker Desktop + Kubernetes + Floci, ver README). Solo en push a ramas
+# protegidas, nunca en PRs de forks, así código de terceros no se ejecuta en tu máquina.
 name: deploy
 on:
   push:
@@ -9,28 +11,25 @@ concurrency: deploy-${{ github.ref_name }} # nunca dos despliegues al mismo ambi
 
 env:
   ENVIRONMENT: ${{ github.ref_name }}
-  AWS_DEFAULT_REGION: us-east-1
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
 jobs:
   terraform-apply:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, aegisvolt]
     defaults:
-      run: { working-directory: infra }
+      run:
+        working-directory: infra
+        shell: C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -eo pipefail {0}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-        with: { terraform_version: "1.10.5" }
-      - run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+        with: { terraform_version: "1.10.5", terraform_wrapper: false }
+      - run: terraform init -input=false -backend-config=floci.s3.tfbackend
       - name: Seleccionar workspace según la rama destino del merge
         run: terraform workspace select -or-create "$ENVIRONMENT"
       - run: terraform apply -auto-approve -input=false
 
   deploy-canary:
     needs: terraform-apply
-    # Runner instalado en el PC con Docker Desktop + Kubernetes (ver README). Solo corre en push a ramas
-    # protegidas, nunca en PRs, así código de terceros no se ejecuta en tu máquina.
     runs-on: [self-hosted, aegisvolt]
     defaults:
       run:
@@ -44,5 +43,7 @@ jobs:
             docker build --build-arg SERVICE=$s -t aegisvolt/$s:$TAG services
           done
           docker build -t aegisvolt/frontend:$TAG frontend
-      - name: Canary 20 % -> verificación -> 100 % o rollback
+      - name: helm lint
+        run: helm lint charts/aegisvolt -f "charts/aegisvolt/values-$ENVIRONMENT.yaml"
+      - name: Canary 20 % -> verificación -> 100 % o helm rollback
         run: bash scripts/deploy.sh "$ENVIRONMENT" "${GITHUB_SHA::7}"

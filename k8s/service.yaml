@@ -1,9 +1,0 @@
-# El Service selecciona SOLO por "app" (no por "track"): reparte tráfico entre pods stable y canary
-# en proporción al número de réplicas (4 stable + 1 canary = 20 % al canary).
-apiVersion: v1
-kind: Service
-metadata:
-  name: __NAME__
-spec:
-  selector: { app: __NAME__ }
-  ports: [{ port: 8000, targetPort: 8000 }]

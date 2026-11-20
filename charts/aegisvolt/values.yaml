@@ -1,0 +1,24 @@
+# Valores comunes. Lo que cambia por ambiente está en values-<env>.yaml:
+#   helm upgrade --install aegisvolt charts/aegisvolt -n aegisvolt-dev -f charts/aegisvolt/values-dev.yaml
+env: dev
+nodePort: 30080 # puerto del frontend en localhost
+
+stableTag: latest # imagen de la versión estable
+canaryTag: ""     # si tiene valor, crea <svc>-canary (1 réplica) con esta imagen junto a la estable
+stableReplicas: 4 # 4 estables + 1 canary = 20 % del tráfico al canary
+
+services: # nombre del Service (DNS) -> nombre lógico del microservicio
+  reservation: station-reservation-service
+  billing: billing-wallet-service
+  dispatch: energy-dispatch-service
+  gateway: graphql-gateway
+
+aws: # Floci, instalado con k8s/platform.yaml
+  endpoint: http://floci.aegisvolt-platform.svc.cluster.local:4566
+  region: us-east-1
+  accessKeyId: test # Floci acepta cualquier llave; con AWS real vendrían de un gestor de secretos
+  secretAccessKey: test
+
+otelEndpoint: http://jaeger.aegisvolt-platform.svc.cluster.local:4318
+
+networkPolicies: true

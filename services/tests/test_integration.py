@@ -1,5 +1,5 @@
-"""Integración: los 4 servicios reales (en proceso) contra tablas DynamoDB reales (dynamodb-local),
-entrando por el endpoint GraphQL. Requiere DYNAMODB_ENDPOINT (p. ej. http://localhost:8000)."""
+"""Integración: los 4 servicios reales (en proceso) contra tablas DynamoDB de Floci,
+entrando por el endpoint GraphQL. Requiere AWS_ENDPOINT_URL (p. ej. http://localhost:4566)."""
 import os
 
 import pytest
@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from conftest import load_service
 
-pytestmark = pytest.mark.skipif(not os.getenv("DYNAMODB_ENDPOINT"), reason="requiere dynamodb-local")
+pytestmark = pytest.mark.skipif(not os.getenv("AWS_ENDPOINT_URL"), reason="requiere Floci")
 
 
 @pytest.fixture()

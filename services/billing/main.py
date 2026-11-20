@@ -11,9 +11,10 @@ from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from common import ENV, client, flag, log, table, table_name
+from common import ENV, client, flag, log, table, table_name, setup_tracing
 
 app = FastAPI(title="billing-wallet-service")
+setup_tracing(app)
 TABLE = table_name("billing")
 billing = table("billing")
 RATE_PER_KWH = Decimal("0.35")  # USD

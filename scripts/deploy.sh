@@ -1,38 +1,26 @@
 #!/usr/bin/env bash
-# Despliegue Canary a Kubernetes:  scripts/deploy.sh <dev|test|prod> <tag-de-imagen>
-# Por cada microservicio cuya imagen cambió:
-#   1. crea <svc>-canary con 1 réplica junto a <svc>-stable (4 réplicas)  -> ~20 % del tráfico
-#   2. genera tráfico de prueba y evalúa: readiness OK, 0 reinicios, 0 respuestas 5xx y
-#      errores en CloudWatch del stream del canary <= ERROR_THRESHOLD
-#   3. si pasa -> actualiza stable al 100 % y borra el canary; si falla -> borra el canary (rollback) y sale con error
+# Despliegue Canary a Kubernetes con Helm:  scripts/deploy.sh <dev|test|prod> <tag-de-imagen>
+#   1. helm upgrade con canaryTag=<nuevo>: crea <svc>-canary (1 réplica) junto a <svc>-stable (4)  -> ~20 % del tráfico
+#   2. genera tráfico de prueba y evalúa: pods canary Ready, 0 reinicios, 0 respuestas no-200 y
+#      errores en CloudWatch (Floci) de los streams del canary <= ERROR_THRESHOLD
+#   3. si pasa -> helm upgrade con stableTag=<nuevo> (100 %, el canary desaparece)
+#      si falla -> helm rollback a la revisión anterior (solo la versión estable) y sale con error
 set -euo pipefail
 
 ENV=$1
 TAG=$2
 NS="aegisvolt-$ENV"
-STABLE_REPLICAS=${STABLE_REPLICAS:-4}
+CHART=charts/aegisvolt
+VALUES="$CHART/values-$ENV.yaml"
+[ -f "$VALUES" ] || { echo "ambiente inválido: $ENV"; exit 1; }
 ERROR_THRESHOLD=${ERROR_THRESHOLD:-0}
 SMOKE_REQUESTS=${SMOKE_REQUESTS:-40}
-case $ENV in dev) NODEPORT=30080 ;; test) NODEPORT=30081 ;; prod) NODEPORT=30082 ;; *) echo "ambiente inválido"; exit 1 ;; esac
-URL="http://localhost:$NODEPORT"
-SERVICES="reservation:station-reservation-service billing:billing-wallet-service dispatch:energy-dispatch-service gateway:graphql-gateway"
+URL="http://localhost:$(sed -n 's/^nodePort: *//p' "$VALUES")"
 K="kubectl -n $NS"
 
-render() { # name service image track replicas
-  sed -e "s|__NAME__|$1|g" -e "s|__SERVICE__|$2|g" -e "s|__IMAGE__|$3|g" -e "s|__TRACK__|$4|g" \
-      -e "s|__REPLICAS__|$5|g" k8s/app.yaml
+helm_deploy() { # --set ... extra
+  helm upgrade --install aegisvolt "$CHART" -n "$NS" --create-namespace -f "$VALUES" --wait --timeout 3m "$@"
 }
-
-# --- Namespace, configuración y credenciales del ambiente ---
-kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f -
-$K create configmap aegisvolt-config --from-literal=ENV="$ENV" --from-literal=CLOUDWATCH=1 \
-  --from-literal=AWS_DEFAULT_REGION=us-east-1 --dry-run=client -o yaml | $K apply -f -
-$K create secret generic aws-creds --from-literal=AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-  --from-literal=AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" --dry-run=client -o yaml | $K apply -f -
-
-# --- Services primero (nginx necesita resolver "gateway" al arrancar), luego el frontend ---
-for entry in $SERVICES; do sed "s|__NAME__|${entry%%:*}|g" k8s/service.yaml | $K apply -f -; done
-sed -e "s|__IMAGE__|aegisvolt/frontend:$TAG|" -e "s|__NODEPORT__|$NODEPORT|" k8s/frontend.yaml | $K apply -f -
 
 smoke_traffic() { # cuenta respuestas no-200 de consultas que tocan los 4 servicios
   local fails=0
@@ -45,40 +33,45 @@ smoke_traffic() { # cuenta respuestas no-200 de consultas que tocan los 4 servic
   echo "$fails"
 }
 
-canary_healthy() { # name service start_ms
-  local restarts http_fails cw_errors
-  http_fails=$(smoke_traffic)
-  restarts=$($K get pods -l "app=$1,track=canary" -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}')
-  cw_errors=$(aws logs filter-log-events --log-group-name "/aegisvolt/$ENV/$2" --log-stream-name-prefix "$1-canary" \
-    --start-time "$3" --filter-pattern '{ $.level = "ERROR" }' --query 'length(events)' --output text 2>/dev/null || echo 0)
-  echo "canary $1 -> respuestas_fallidas=$http_fails reinicios=${restarts:-0} errores_cloudwatch=$cw_errors (umbral=$ERROR_THRESHOLD)"
-  [ "$http_fails" -eq 0 ] && [ "${restarts:-0}" -eq 0 ] && [ "$cw_errors" -le "$ERROR_THRESHOLD" ]
+cloudwatch_errors() { # start_ms -> errores ERROR en los log streams de pods canary (el stream = nombre del pod)
+  # Se consulta desde un pod del gateway: ya tiene boto3 y AWS_ENDPOINT_URL apuntando a Floci.
+  $K exec deploy/gateway-stable -- python -c "
+import boto3
+logs, n = boto3.client('logs'), 0
+for name, svc in [('reservation', 'station-reservation-service'), ('billing', 'billing-wallet-service'),
+                  ('dispatch', 'energy-dispatch-service'), ('gateway', 'graphql-gateway')]:
+    n += len(logs.filter_log_events(logGroupName='/aegisvolt/$ENV/' + svc, logStreamNamePrefix=name + '-canary',
+                                    startTime=$1, filterPattern='{ \$.level = \"ERROR\" }')['events'])
+print(n)"
 }
 
-for entry in $SERVICES; do
-  name=${entry%%:*}; svc=${entry#*:}; image="aegisvolt/$name:$TAG"
+canary_healthy() { # start_ms
+  local http_fails restarts cw_errors
+  http_fails=$(smoke_traffic)
+  restarts=$($K get pods -l track=canary -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}' |
+    tr ' ' '\n' | awk '{s += $1} END {print s + 0}')
+  cw_errors=$(cloudwatch_errors "$1")
+  echo "canary -> respuestas_fallidas=$http_fails reinicios=$restarts errores_cloudwatch=$cw_errors (umbral=$ERROR_THRESHOLD)"
+  [ "$http_fails" -eq 0 ] && [ "$restarts" -eq 0 ] && [ "$cw_errors" -le "$ERROR_THRESHOLD" ]
+}
 
-  if ! $K get deploy "$name-stable" >/dev/null 2>&1; then # primer despliegue: no hay versión estable que proteger
-    render "$name" "$svc" "$image" stable "$STABLE_REPLICAS" | $K apply -f -
-    continue
-  fi
-  current=$($K get deploy "$name-stable" -o jsonpath='{.spec.template.spec.containers[0].image}')
-  [ "$current" = "$image" ] && { echo "$name sin cambios"; continue; }
+current=$($K get deploy gateway-stable -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null | cut -d: -f2 || true)
 
-  echo ">>> CANARY $name: $image (1 réplica) junto a $current ($STABLE_REPLICAS réplicas)"
+if [ -z "$current" ] || [ "$current" = "$TAG" ]; then # primer despliegue (nada que proteger) o mismo código
+  helm_deploy --set stableTag="$TAG"
+else
+  echo ">>> CANARY $TAG (1 réplica por servicio) junto a $current (4 réplicas)"
   start_ms=$(($(date +%s) * 1000))
-  render "$name" "$svc" "$image" canary 1 | $K apply -f -
-  if $K rollout status "deploy/$name-canary" --timeout=120s && canary_healthy "$name" "$svc" "$start_ms"; then
-    echo ">>> PROMOVER $name al 100 %"
-    render "$name" "$svc" "$image" stable "$STABLE_REPLICAS" | $K apply -f -
-    $K rollout status "deploy/$name-stable" --timeout=180s
-    $K delete deploy "$name-canary"
+  if helm_deploy --set stableTag="$current" --set canaryTag="$TAG" && canary_healthy "$start_ms"; then
+    echo ">>> PROMOVER $TAG al 100 %"
+    helm_deploy --set stableTag="$TAG"
   else
-    echo ">>> ROLLBACK $name: se elimina el canary, la versión estable $current sigue atendiendo el 100 %"
-    $K delete deploy "$name-canary" --ignore-not-found
+    echo ">>> ROLLBACK: helm vuelve a la revisión anterior; $current sigue atendiendo el 100 %"
+    helm rollback aegisvolt -n "$NS" --wait
+    helm history aegisvolt -n "$NS" --max 5
     exit 1
   fi
-done
+fi
 
-for entry in $SERVICES; do $K rollout status "deploy/${entry%%:*}-stable" --timeout=180s; done
+helm history aegisvolt -n "$NS" --max 5
 echo "Despliegue $ENV OK -> $URL"

@@ -1,0 +1,58 @@
+{{- /*
+Por cada microservicio: Deployment <name>-stable, Deployment <name>-canary (solo si canaryTag tiene valor)
+y un Service que selecciona SOLO por "app" (no por "track"): reparte el tráfico entre pods stable y canary
+en proporción al número de réplicas (4 stable + 1 canary = 20 % al canary).
+*/ -}}
+{{- $root := . }}
+{{- range $name, $service := .Values.services }}
+{{- range $track := list "stable" "canary" }}
+{{- $tag := ternary $root.Values.stableTag $root.Values.canaryTag (eq $track "stable") }}
+{{- if $tag }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-{{ $track }}
+  labels: { app: {{ $name }}, track: {{ $track }} }
+spec:
+  replicas: {{ ternary $root.Values.stableReplicas 1 (eq $track "stable") }}
+  selector:
+    matchLabels: { app: {{ $name }}, track: {{ $track }} }
+  template:
+    metadata:
+      labels: { app: {{ $name }}, track: {{ $track }} }
+      annotations: # si cambia la configuración, los pods se recrean solos
+        checksum/config: {{ include (print $root.Template.BasePath "/config.yaml") $root | sha256sum }}
+    spec:
+      containers:
+        - name: app
+          image: aegisvolt/{{ $name }}:{{ $tag }}
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8000 }]
+          env:
+            - { name: SERVICE, value: {{ $service }} }
+          envFrom:
+            - configMapRef: { name: aegisvolt-config }
+            - secretRef: { name: aws-creds }
+          # readiness: ¿puede recibir tráfico? Si falla, el Service lo saca del balanceo (sin reiniciarlo).
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 5
+          # liveness: ¿sigue vivo? Si falla 3 veces seguidas, kubelet reinicia el contenedor.
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 15
+          resources:
+            requests: { cpu: 25m, memory: 64Mi } # lo que el scheduler reserva en el nodo
+            limits: { memory: 192Mi }            # si lo supera, OOMKilled
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  selector: { app: {{ $name }} }
+  ports: [{ port: 8000, targetPort: 8000 }]
+{{- end }}

@@ -3,9 +3,10 @@ from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from common import ENV, log, table
+from common import ENV, log, table, setup_tracing
 
 app = FastAPI(title="station-reservation-service")
+setup_tracing(app)
 connectors = table("reservations")
 
 

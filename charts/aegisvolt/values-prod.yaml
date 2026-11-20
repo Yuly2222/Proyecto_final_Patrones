@@ -1,0 +1,2 @@
+env: prod
+nodePort: 30082

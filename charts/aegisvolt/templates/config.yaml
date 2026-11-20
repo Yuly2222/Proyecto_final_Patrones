@@ -1,0 +1,20 @@
+# ConfigMap: configuración NO sensible del ambiente. Secret: credenciales (montadas como variables de entorno).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aegisvolt-config
+data:
+  ENV: {{ .Values.env | quote }}          # -> tablas aegisvolt-*-<env> y log group /aegisvolt/<env>/...
+  CLOUDWATCH: "1"
+  AWS_DEFAULT_REGION: {{ .Values.aws.region | quote }}
+  AWS_ENDPOINT_URL: {{ .Values.aws.endpoint | quote }} # boto3 envía DynamoDB y CloudWatch a Floci
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.otelEndpoint | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-creds
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: {{ .Values.aws.accessKeyId | quote }}
+  AWS_SECRET_ACCESS_KEY: {{ .Values.aws.secretAccessKey | quote }}

@@ -1,14 +1,15 @@
-# API Gateway REST de tipo PRIVATE: solo se puede invocar desde dentro de la VPC, a través del
-# Interface Endpoint "execute-api". La resource policy rechaza cualquier llamada de otra VPC.
+# API Gateway REST de tipo PRIVATE: solo se puede invocar a través del Interface Endpoint "execute-api"
+# de la VPC del ambiente. La resource policy rechaza cualquier llamada que no venga por ese VPCE.
 variable "name" {}
 variable "env" {}
-variable "vpc_id" {}
+variable "vpce_id" {}
 variable "backend_url" {}
 
 resource "aws_api_gateway_rest_api" "this" {
   name = "${var.name}-graphql"
   endpoint_configuration {
-    types = ["PRIVATE"]
+    types            = ["PRIVATE"]
+    vpc_endpoint_ids = [var.vpce_id]
   }
 }
 
@@ -32,8 +33,8 @@ data "aws_iam_policy_document" "only_my_vpc" {
     }
     condition {
       test     = "StringNotEquals"
-      variable = "aws:SourceVpc"
-      values   = [var.vpc_id]
+      variable = "aws:SourceVpce"
+      values   = [var.vpce_id]
     }
   }
 }
@@ -70,7 +71,7 @@ resource "aws_api_gateway_integration" "graphql" {
 resource "aws_api_gateway_deployment" "this" {
   rest_api_id = aws_api_gateway_rest_api.this.id
   triggers = {
-    redeploy = sha1(jsonencode([aws_api_gateway_integration.graphql, aws_api_gateway_rest_api_policy.this]))
+    redeploy = sha1(jsonencode([aws_api_gateway_integration.graphql.uri, aws_api_gateway_rest_api_policy.this.policy])) # solo lo que cambia el comportamiento
   }
   lifecycle {
     create_before_destroy = true

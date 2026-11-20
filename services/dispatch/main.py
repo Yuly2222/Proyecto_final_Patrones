@@ -6,9 +6,10 @@ from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from common import ENV, flag, log, table
+from common import ENV, flag, log, table, setup_tracing
 
 app = FastAPI(title="energy-dispatch-service")
+setup_tracing(app)
 sessions = table("dispatch")
 
 

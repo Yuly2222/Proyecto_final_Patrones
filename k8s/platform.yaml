@@ -1,0 +1,110 @@
+# Plataforma compartida por los 3 ambientes (se instala UNA vez, antes de Terraform):
+#   kubectl apply -f k8s/platform.yaml
+#   - Floci: la "nube AWS" (S3, DynamoDB, CloudWatch, VPC, API Gateway). Terraform la usa por localhost:30566
+#     y los pods por http://floci.aegisvolt-platform.svc.cluster.local:4566
+#   - Jaeger: recibe las trazas OpenTelemetry de los 3 ambientes. UI en http://localhost:30686
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aegisvolt-platform
+  labels: { name: aegisvolt-platform } # lo usan las NetworkPolicies de los ambientes para permitir el egress
+---
+# PersistentVolumeClaim: Kubernetes crea un PersistentVolume con la StorageClass por defecto ("hostpath" en
+# Docker Desktop). Sin esto, reiniciar el pod de Floci borraría los tfstate, las tablas y los logs.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: floci-data
+  namespace: aegisvolt-platform
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: { storage: 2Gi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: floci
+  namespace: aegisvolt-platform
+spec:
+  replicas: 1
+  strategy: { type: Recreate } # el volumen es ReadWriteOnce: el pod viejo debe soltarlo antes de crear el nuevo
+  selector:
+    matchLabels: { app: floci }
+  template:
+    metadata:
+      labels: { app: floci }
+    spec:
+      # Sin esto Kubernetes inyecta FLOCI_PORT=tcp://<ip>:4566 (por el Service "floci"), que choca con la
+      # variable de configuración FLOCI_PORT de Floci y el pod no arranca.
+      enableServiceLinks: false
+      containers:
+        - name: floci
+          image: floci/floci:2.5.0
+          ports: [{ containerPort: 4566 }]
+          env:
+            - { name: FLOCI_STORAGE_MODE, value: hybrid } # en memoria + volcado a disco: sobrevive reinicios
+            - { name: FLOCI_STORAGE_PERSISTENT_PATH, value: /app/data }
+            - { name: FLOCI_SERVICES_UI_ENABLED, value: "false" } # la consola web necesita el socket de Docker
+          volumeMounts:
+            - { name: data, mountPath: /app/data }
+          readinessProbe:
+            httpGet: { path: /_floci/health, port: 4566 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /_floci/health, port: 4566 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: floci-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: floci
+  namespace: aegisvolt-platform
+spec:
+  type: NodePort
+  selector: { app: floci }
+  ports: [{ port: 4566, targetPort: 4566, nodePort: 30566 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: aegisvolt-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: jaeger }
+  template:
+    metadata:
+      labels: { app: jaeger }
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/jaeger:2.23.0 # all-in-one: colector OTLP + almacenamiento en memoria + UI
+          ports:
+            - { containerPort: 4318, name: otlp-http }
+            - { containerPort: 16686, name: ui }
+          readinessProbe:
+            httpGet: { path: /, port: 16686 }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: aegisvolt-platform
+spec:
+  type: NodePort
+  selector: { app: jaeger }
+  ports:
+    - { name: otlp-http, port: 4318, targetPort: 4318 }
+    - { name: ui, port: 16686, targetPort: 16686, nodePort: 30686 }
