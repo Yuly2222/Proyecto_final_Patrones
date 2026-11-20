@@ -88,3 +88,34 @@ def test_connector_cannot_be_double_booked(gql):
     gql(SAGA % ("CON-CDMX-01-A", "fleet-rapiexpress"))
     saga = gql(SAGA % ("CON-CDMX-01-A", "fleet-rapiexpress"))["reserveAndCharge"]
     assert saga["status"] == "FAILED"
+
+
+def test_negative_kwh_is_rejected(gql):
+    q = 'mutation { reserveAndCharge(connectorId: "CON-BOG-01-A", fleetId: "fleet-rapiexpress", kwh: -100) { status } }'
+    assert gql(q)["reserveAndCharge"]["status"] == "COMPENSATED"
+    assert balance(gql, "fleet-rapiexpress") == 500  # no ganó saldo
+
+
+def test_read_fallback_serves_last_good_data(gql):
+    import sys
+    gateway = sys.modules["gateway_main"]
+    good = gql("{ stations { connectorId } }")["stations"]
+    real = gateway.call
+
+    def down(service, path, payload=None):
+        from saga import StepFailed
+        raise StepFailed("reservation down", retriable=True)
+
+    gateway.call = down
+    try:
+        assert gql("{ stations { connectorId } }")["stations"] == good  # caché, la consulta no se rompe
+    finally:
+        gateway.call = real
+
+
+def test_graphql_alias_batching_is_blocked(gql):
+    import sys
+    from fastapi.testclient import TestClient
+    many = " ".join(f"a{i}: environment" for i in range(20))
+    body = TestClient(sys.modules["gateway_main"].app).post("/graphql", json={"query": "{ %s }" % many}).json()
+    assert "errors" in body

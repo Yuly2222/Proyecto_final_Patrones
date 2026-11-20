@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from common import ENV, client, flag, log, table, table_name
 
@@ -23,7 +23,7 @@ SURGE_MULTIPLIER = Decimal("1.5")
 class ChargeReq(BaseModel):
     saga_id: str
     fleet_id: str
-    kwh: float
+    kwh: float = Field(gt=0, le=500)  # kwh negativo = cobro negativo = la billetera ganaría saldo
 
 
 class RefundReq(BaseModel):

@@ -4,11 +4,15 @@ import os
 import httpx
 import strawberry
 from fastapi import FastAPI
+from graphql.validation import NoSchemaIntrospectionCustomRule
+from strawberry.extensions import (AddValidationRules, MaskErrors, MaxAliasesLimiter, MaxTokensLimiter,
+                                   QueryDepthLimiter)
 from strawberry.fastapi import GraphQLRouter
 from strawberry.scalars import JSON
 
-from common import ENV, table
+from common import ENV, log, table
 from common import _flags as _flag_cache
+from resilience import Bulkhead, BulkheadFull, CircuitBreaker, CircuitOpen
 from saga import StepFailed, run_saga
 
 URLS = {  # nombres DNS de los Services de Kubernetes (o de docker-compose)
@@ -17,23 +21,51 @@ URLS = {  # nombres DNS de los Services de Kubernetes (o de docker-compose)
     "dispatch": os.getenv("DISPATCH_URL", "http://dispatch:8000"),
 }
 FLAGS = ["ENABLE_DYNAMIC_SURGE_PRICING", "ENABLE_FAST_CHARGE_BOOST", "SIMULATE_CHARGER_HARDWARE_FAULT"]
+BREAKERS = {s: CircuitBreaker() for s in URLS}  # uno por servicio: si billing cae, reservation sigue normal
+BULKHEADS = {s: Bulkhead() for s in URLS}
 
 
 def http_call(service: str, path: str, payload: dict | None = None):
-    """Llamada a un microservicio. Errores 4xx/5xx o de red -> StepFailed (lo maneja la SAGA)."""
+    """Llamada a un microservicio protegida por Circuit Breaker + Bulkhead.
+    Errores 4xx/5xx, de red, circuito abierto o bulkhead lleno -> StepFailed (lo maneja la SAGA)."""
+    breaker = BREAKERS[service]
     try:
-        if payload is None:
-            r = httpx.get(URLS[service] + path, timeout=5)
-        else:
-            r = httpx.post(URLS[service] + path, json=payload, timeout=5)
+        breaker.before()
+        with BULKHEADS[service]:
+            if payload is None:
+                r = httpx.get(URLS[service] + path, timeout=5)
+            else:
+                r = httpx.post(URLS[service] + path, json=payload, timeout=5)
+    except CircuitOpen:
+        raise StepFailed(f"{service} circuit OPEN", retriable=False)  # no insistir: falla rápido y se compensa
+    except BulkheadFull:
+        raise StepFailed(f"{service} bulkhead full", retriable=True)
     except httpx.HTTPError as e:
+        breaker.failure()
         raise StepFailed(f"{service} unreachable: {e}", retriable=True)
+    if r.status_code >= 500:
+        breaker.failure()
+    else:
+        breaker.success()  # un 4xx es error de negocio: el servicio está sano
     if r.status_code >= 400:
         raise StepFailed(f"{service}{path} -> {r.status_code} {r.text}", retriable=r.status_code >= 500)
     return r.json()
 
 
 call = http_call  # los tests de integración lo reemplazan para enrutar a TestClients
+_last_good: dict[str, list] = {}
+
+
+def read_with_fallback(service: str, path: str) -> list:
+    """Fallback para LECTURAS: si el servicio falla se devuelve la última respuesta buena (datos en caché,
+    posiblemente desactualizados) o una lista vacía. Así una caída de dispatch no rompe la consulta de estaciones.
+    Las ESCRITURAS no usan fallback: su 'plan B' es la compensación de la SAGA."""
+    key = service + path
+    try:
+        _last_good[key] = call(service, path)
+    except StepFailed as e:
+        log("fallback_used", None, service=service, path=path, error=str(e), cached=key in _last_good)
+    return _last_good.get(key, [])
 
 
 @strawberry.type
@@ -94,7 +126,7 @@ class Query:
     def stations(self) -> list[Connector]:
         return [Connector(connector_id=c["connector_id"], station_name=c.get("station_name", ""),
                           power_kw=int(c.get("power_kw", 0)), status=c["status"], saga_id=c.get("saga_id"))
-                for c in call("reservation", "/connectors")]
+                for c in read_with_fallback("reservation", "/connectors")]
 
     @strawberry.field
     def feature_flags(self) -> list[FeatureFlag]:
@@ -109,13 +141,14 @@ class Query:
 
     @strawberry.field
     def wallets(self) -> list[Wallet]:
-        return [Wallet(fleet_id=w["fleet_id"], balance=float(w["balance"])) for w in call("billing", "/wallets")]
+        return [Wallet(fleet_id=w["fleet_id"], balance=float(w["balance"]))
+                for w in read_with_fallback("billing", "/wallets")]
 
     @strawberry.field
     def telemetry(self) -> list[ChargingSession]:
         return [ChargingSession(session_id=s["session_id"], connector_id=s["connector_id"], status=s["status"],
                                 power_kw=int(s["power_kw"]), kwh_delivered=s.get("kwh_delivered"))
-                for s in call("dispatch", "/sessions")]
+                for s in read_with_fallback("dispatch", "/sessions")]
 
 
 @strawberry.type
@@ -139,9 +172,18 @@ class Mutation:
         return FeatureFlag(name=name, enabled=enabled, env=ENV)
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+PROD = ENV == "prod"
+schema = strawberry.Schema(query=Query, mutation=Mutation, extensions=[
+    QueryDepthLimiter(max_depth=5),        # evita consultas anidadas enormes (DoS)
+    MaxTokensLimiter(max_token_count=1000),  # evita documentos gigantes
+    MaxAliasesLimiter(max_alias_count=15),   # evita "alias batching" (la misma mutación x1000 en 1 request)
+    *([AddValidationRules([NoSchemaIntrospectionCustomRule]),  # en prod no se expone el esquema
+       MaskErrors()] if PROD else []),                           # ni detalles internos de los errores
+])
 app = FastAPI(title="graphql-gateway")
-app.include_router(GraphQLRouter(schema), prefix="/graphql")
+# Solo POST con JSON: un <img>/<form> de otro sitio no puede disparar operaciones (CSRF). Sin GraphiQL en prod.
+app.include_router(GraphQLRouter(schema, allow_queries_via_get=False, graphql_ide=None if PROD else "graphiql"),
+                   prefix="/graphql")
 
 
 @app.get("/health")

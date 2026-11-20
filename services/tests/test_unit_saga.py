@@ -84,3 +84,36 @@ def test_transient_step_failure_is_retried_not_compensated():
     saga = run_saga(call, "C1", "F1", 30, MemoryLog())
     assert saga["status"] == "COMPLETED"
     assert calls.count("billing/charge") == 3 and "reservation/release" not in calls
+
+
+def test_circuit_breaker_opens_then_half_opens():
+    from resilience import CircuitBreaker, CircuitOpen
+    now = [0.0]
+    cb = CircuitBreaker(fail_threshold=2, open_seconds=10, clock=lambda: now[0])
+    cb.failure(); cb.failure()
+    assert cb.state == "OPEN"
+    try:
+        cb.before()
+        assert False, "debió fallar rápido"
+    except CircuitOpen:
+        pass
+    now[0] = 10
+    assert cb.state == "HALF_OPEN"
+    cb.failure()  # falla la llamada de prueba -> se reabre
+    assert cb.state == "OPEN"
+    now[0] = 20
+    cb.before(); cb.success()
+    assert cb.state == "CLOSED"
+
+
+def test_bulkhead_rejects_when_full():
+    from resilience import Bulkhead, BulkheadFull
+    b = Bulkhead(size=1, wait_seconds=0)
+    with b:
+        try:
+            with b:
+                assert False, "no debió entrar"
+        except BulkheadFull:
+            pass
+    with b:  # se liberó el cupo
+        pass

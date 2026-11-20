@@ -1,0 +1,9 @@
+# Supply chain: PRs automáticos cuando hay versiones nuevas o parches de seguridad de las dependencias.
+# Como todas las versiones están fijadas, nada cambia sin pasar por un PR con los 6 checks del CI.
+version: 2
+updates:
+  - { package-ecosystem: pip, directory: /services, schedule: { interval: weekly }, target-branch: dev }
+  - { package-ecosystem: npm, directory: /frontend, schedule: { interval: weekly }, target-branch: dev }
+  - { package-ecosystem: docker, directory: /services, schedule: { interval: weekly }, target-branch: dev }
+  - { package-ecosystem: docker, directory: /frontend, schedule: { interval: weekly }, target-branch: dev }
+  - { package-ecosystem: github-actions, directory: /, schedule: { interval: weekly }, target-branch: dev }

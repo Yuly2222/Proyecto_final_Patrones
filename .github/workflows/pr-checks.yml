@@ -35,7 +35,7 @@ jobs:
       - run: python -m compileall -q services
       - name: Validar y exportar esquema GraphQL
         working-directory: services/gateway
-        run: PYTHONPATH=.. strawberry export-schema main:schema > schema.graphql && cat schema.graphql
+        run: PYTHONPATH=.. python -c "from main import schema; print(schema.as_str())" > schema.graphql && cat schema.graphql
       - uses: actions/upload-artifact@v4
         with: { name: graphql-schema, path: services/gateway/schema.graphql }
       - name: Construir imágenes Docker
