@@ -1,0 +1,660 @@
+<title>Guía AegisVolt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&family=Roboto:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: barra de pestañas fija + paneles de una sola columna (max 1040px); identidad tomada del frontend de AegisVolt */
+:root{
+  --bg:#eef1f3; --panel:#ffffff; --ink:#141414; --muted:#55606a; --line:#d4dadf;
+  --blue:#4bbbed; --blue-ink:#0b5f86; --soft:#e3f4fc;
+  --dev:#2f7d32; --test:#b26a00; --prod:#b3261e;
+  --ok:#2f7d32; --warn:#b26a00; --bad:#b3261e;
+  --code-bg:#f3f5f7;
+  --f-display:"Titillium Web",system-ui,sans-serif; --f-body:Roboto,system-ui,sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1418; --panel:#182027; --ink:#e8edf1; --muted:#9aa7b2; --line:#2c3843;
+  --blue:#4bbbed; --blue-ink:#7fd0f3; --soft:#14303f;
+  --dev:#5cb860; --test:#e09a2f; --prod:#ef6a60; --ok:#5cb860; --warn:#e09a2f; --bad:#ef6a60;
+  --code-bg:#11181e; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0f1418; --panel:#182027; --ink:#e8edf1; --muted:#9aa7b2; --line:#2c3843;
+  --blue:#4bbbed; --blue-ink:#7fd0f3; --soft:#14303f;
+  --dev:#5cb860; --test:#e09a2f; --prod:#ef6a60; --ok:#5cb860; --warn:#e09a2f; --bad:#ef6a60;
+  --code-bg:#11181e; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--f-body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{background:var(--panel);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:28px 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.brand{display:flex;flex-direction:column;gap:4px}
+.eyebrow{font:500 12px var(--f-body);letter-spacing:1.5px;text-transform:uppercase;color:var(--blue-ink)}
+h1{font:700 clamp(28px,5vw,42px)/1.05 var(--f-display);margin:0;letter-spacing:.3px}
+h1 .bolt{color:var(--blue)}
+.sub{color:var(--muted);margin:0;max-width:62ch}
+.score-pill{display:flex;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--blue);border-radius:999px;padding:8px 16px;font-weight:500;white-space:nowrap}
+.score-pill b{font:700 22px var(--f-display);font-variant-numeric:tabular-nums}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:thin}
+nav.tabs a{flex:none;padding:12px 14px;color:var(--muted);text-decoration:none;font:500 14px var(--f-body);border-bottom:3px solid transparent;white-space:nowrap}
+nav.tabs a:hover{color:var(--ink)}
+nav.tabs a[aria-current="page"]{color:var(--ink);border-color:var(--blue)}
+nav.tabs a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible,.node:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+main .wrap{padding-block:28px 64px;display:flex;flex-direction:column;gap:24px}
+section.view{display:flex;flex-direction:column;gap:24px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:24px clamp(16px,3vw,32px);min-width:0}
+h2{font:700 26px/1.15 var(--f-display);margin:0 0 6px;text-wrap:balance}
+h3{font:600 19px/1.25 var(--f-display);margin:0 0 6px;text-wrap:balance}
+p{margin:0 0 10px;max-width:72ch}
+.lead{font-size:16.5px;color:var(--muted);margin-bottom:18px}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+code{background:var(--code-bg);border:1px solid var(--line);border-radius:4px;padding:1px 5px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;font:13px/1.55 var(--f-mono);margin:8px 0}
+pre code{background:none;border:0;padding:0}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.grid > *{min-width:0}
+.card{border:1px solid var(--line);border-radius:6px;padding:16px;background:var(--panel);display:flex;flex-direction:column;gap:6px}
+.card .k{font:500 11px var(--f-body);letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
+.card b{font:600 18px var(--f-display)}
+.persona{border-top:3px solid var(--blue)}
+.chip{display:inline-block;font:500 11px var(--f-body);letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-bad{color:var(--bad)} .c-blue{color:var(--blue-ink)}
+.env-dev{color:var(--dev)} .env-test{color:var(--test)} .env-prod{color:var(--prod)}
+button.btn{font:500 14px var(--f-body);padding:9px 18px;border-radius:999px;border:1px solid var(--ink);background:var(--panel);color:var(--ink);cursor:pointer}
+button.btn.primary{background:var(--blue);border-color:var(--blue);color:#0a0f12}
+button.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+label.toggle{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-size:14px}
+label.toggle input{accent-color:var(--blue);margin:0}
+/* Arquitectura */
+.arch{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.arch{grid-template-columns:1fr}}
+.diagram{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.tier{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;position:relative}
+.tier-label{font:500 10.5px var(--f-body);letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);text-align:center}
+.box{border:1px dashed var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.node{flex:1 1 130px;max-width:260px;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:6px;padding:8px 10px;background:var(--panel);cursor:pointer;text-align:left;font:500 13.5px var(--f-body);color:var(--ink)}
+.node small{display:block;color:var(--muted);font:400 12px var(--f-mono)}
+.node:hover{background:var(--soft)}
+.node.sel{background:var(--soft);border-color:var(--blue)}
+.node.db{border-left-color:var(--warn)} .node.obs{border-left-color:var(--ok)} .node.ci{border-left-color:var(--prod)}
+.arrow{text-align:center;color:var(--muted);font:12px var(--f-mono);line-height:1.2}
+.detail{position:sticky;top:64px}
+.detail .files{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+/* SAGA */
+.saga-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.saga-steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.step{border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:4px;transition:background .25s,border-color .25s}
+.step .n{font:500 11px var(--f-body);letter-spacing:1.3px;text-transform:uppercase;color:var(--muted)}
+.step b{font:600 15px var(--f-display)}
+.step .st{font:500 12px var(--f-mono);color:var(--muted)}
+.step.run{border-color:var(--blue);background:var(--soft)}
+.step.done{border-color:var(--ok)} .step.done .st{color:var(--ok)}
+.step.fail{border-color:var(--bad)} .step.fail .st{color:var(--bad)}
+.step.comp{border-color:var(--warn)} .step.comp .st{color:var(--warn)}
+.tables{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.tbl{border:1px solid var(--line);border-radius:6px;padding:10px 12px;font:12.5px/1.5 var(--f-mono);min-width:0;overflow-wrap:anywhere}
+.tbl .t{font:600 12px var(--f-body);color:var(--muted);margin-bottom:4px}
+.log{background:var(--code-bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font:12px/1.55 var(--f-mono);max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;min-height:60px}
+.log .e{color:var(--bad)} .log .w{color:var(--warn)} .log .i{color:var(--ok)}
+.result{font:600 17px var(--f-display)}
+/* tablas */
+.tscroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 11.5px var(--f-body);letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+td.num{font-variant-numeric:tabular-nums}
+.flagcell{display:flex;justify-content:center}
+.sw{appearance:none;width:42px;height:24px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .2s;margin:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--panel);transition:left .2s}
+.sw:checked{background:var(--blue)} .sw:checked::after{left:21px}
+/* CI/CD */
+.chain{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.br{padding:8px 14px;border-radius:999px;border:2px solid currentColor;font:600 14px var(--f-mono);background:var(--panel);cursor:pointer}
+.br.sel{background:var(--soft)}
+.arrow-h{color:var(--muted);font:13px var(--f-mono)}
+.canary{display:flex;height:34px;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.canary div{display:flex;align-items:center;justify-content:center;font:500 12px var(--f-body);color:#0a0f12;transition:flex-basis .4s}
+.canary .stable{background:var(--blue)} .canary .can{background:var(--warn)}
+.pipeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.job{border:1px solid var(--line);border-radius:6px;padding:10px;font-size:13px}
+.job b{display:block;font:500 13px var(--f-mono)}
+/* Rúbrica */
+.layer{border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.layer > summary{list-style:none;cursor:pointer;padding:16px 18px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center}
+.layer > summary::-webkit-details-marker{display:none}
+.weight{font:700 26px var(--f-display);color:var(--blue-ink);min-width:58px;font-variant-numeric:tabular-nums}
+.layer .meter{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}
+.layer .meter i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.layer .body{padding:0 18px 18px;display:flex;flex-direction:column;gap:12px}
+.q{border-top:1px solid var(--line);padding-top:12px}
+.q .qt{display:flex;gap:10px;align-items:flex-start}
+.q .qt input{margin-top:5px;accent-color:var(--ok);width:17px;height:17px;flex:none}
+.q .qt label{font-weight:500;cursor:pointer}
+.q details{margin-top:6px}
+.q details summary{cursor:pointer;color:var(--blue-ink);font:500 13.5px var(--f-body)}
+.q .ans{padding:8px 0 0 0}
+.crit{display:flex;flex-wrap:wrap;gap:6px}
+.crit span{font-size:12.5px;background:var(--soft);border-radius:999px;padding:3px 10px}
+/* Glosario */
+.search{width:100%;font:15px var(--f-body);padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink)}
+dl.gl{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin:0}
+dl.gl > div{border:1px solid var(--line);border-radius:6px;padding:12px 14px;min-width:0}
+dl.gl dt{font:600 16px var(--f-display);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+dl.gl dd{margin:4px 0 0;font-size:14px;color:var(--muted)}
+/* Pendientes */
+.todo{display:flex;flex-direction:column;gap:10px}
+.task{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:6px;padding:12px 14px}
+.task.p-alta{border-left-color:var(--bad)} .task.p-media{border-left-color:var(--warn)} .task.p-baja{border-left-color:var(--ok)}
+.task input{width:18px;height:18px;margin-top:3px;accent-color:var(--ok)}
+.task.done{opacity:.55} .task.done .tt{text-decoration:line-through}
+.task .tt{font-weight:500}
+.task .why{font-size:13.5px;color:var(--muted)}
+.progress{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.note{border-left:3px solid var(--warn);background:var(--code-bg);padding:10px 14px;border-radius:0 6px 6px 0;font-size:14px}
+footer{color:var(--muted);font-size:13px;text-align:center;padding-bottom:32px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top"><div class="wrap">
+  <div class="brand">
+    <span class="eyebrow">Patrones Arquitectónicos Avanzados · Proyecto final</span>
+    <h1>Aegis<span class="bolt">Volt</span></h1>
+    <p class="sub">Guía para entender el proyecto de punta a punta, preparar la sustentación y ver qué falta.</p>
+  </div>
+  <div class="score-pill" title="Calculado con las preguntas que marcaste como dominadas en la pestaña Rúbrica">
+    Nota estimada <b id="scoreTop">0</b>/100
+  </div>
+</div></header>
+
+<nav class="tabs" aria-label="Secciones"><div class="wrap" id="tabs">
+  <a href="#inicio">1 · Qué es</a>
+  <a href="#arquitectura">2 · Arquitectura</a>
+  <a href="#saga">3 · SAGA en vivo</a>
+  <a href="#flags">4 · Feature flags</a>
+  <a href="#cicd">5 · Git y CI/CD</a>
+  <a href="#rubrica">6 · Rúbrica</a>
+  <a href="#glosario">7 · Glosario</a>
+  <a href="#pendientes">8 · Qué falta</a>
+</div></nav>
+
+<main><div class="wrap">
+
+<!-- ========== 1 INICIO ========== -->
+<section class="view" id="v-inicio">
+  <div class="panel">
+    <h2>¿Para quién es AegisVolt?</h2>
+    <p class="lead">Una plataforma web para que las empresas de reparto con camionetas eléctricas puedan reservar un cargador, pagarlo y arrancar la carga, aunque el cargador se dañe a mitad del proceso.</p>
+    <div class="grid">
+      <div class="card persona"><span class="k">Cliente 1</span><b>Operador de flota</b><p>Empresa de última milla en Latinoamérica (por ejemplo <code>fleet-rapiexpress</code>) que migró sus vehículos a eléctricos y necesita cargarlos sin perder tiempo ni dinero.</p></div>
+      <div class="card persona"><span class="k">Cliente 2</span><b>Electrolinera B2B</b><p>Administrador de estaciones de carga rápida que alquila sus bahías a las flotas y necesita ver el estado de cada conector.</p></div>
+      <div class="card persona"><span class="k">Sector</span><b>e-Mobility y Smart Grids</b><p>Movilidad eléctrica, redes eléctricas inteligentes y logística de última milla.</p></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Los 4 problemas que resuelve</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>Problema del negocio</th><th>Cómo lo resuelve el proyecto</th></tr></thead>
+      <tbody>
+        <tr><td>Cuellos de botella al reservar conectores de alta potencia</td><td>Reserva con escritura condicional en DynamoDB: dos flotas nunca pueden reservar el mismo conector.</td></tr>
+        <tr><td>Cobros mal hechos cuando una bahía se daña</td><td>Patrón SAGA: si el cargador falla, se reembolsa el dinero y se libera el conector automáticamente.</td></tr>
+        <tr><td>Poca visibilidad del consumo de energía</td><td>Telemetría por sesión, logs JSON en CloudWatch, trazas en Jaeger y auditoría en Prefect.</td></tr>
+        <tr><td>Despliegues que rompen estaciones activas</td><td>Ambientes dev/test/prod separados, promoción por Pull Request y despliegue Canary con rollback automático.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="panel">
+    <h3>Lo que hace un usuario, en 4 pasos</h3>
+    <div class="grid">
+      <div class="card"><span class="k">Paso 1</span><b>Ve las estaciones</b><p>El panel muestra cada conector: <span class="chip c-ok">AVAILABLE</span> <span class="chip c-warn">RESERVED</span> <span class="chip c-blue">CHARGING</span>. Se refresca cada 2 s.</p></div>
+      <div class="card"><span class="k">Paso 2</span><b>Reserva y activa</b><p>Elige flota, conector y kWh, y pulsa «Reservar y activar carga». Eso lanza la mutación GraphQL <code>reserveAndCharge</code>.</p></div>
+      <div class="card"><span class="k">Paso 3</span><b>Se ejecuta la SAGA</b><p>Reservar conector → cobrar billetera → encender cargador. Si algo falla, se deshace lo anterior.</p></div>
+      <div class="card"><span class="k">Paso 4</span><b>Revisa el historial</b><p>Panel de sagas con estado <code>COMPLETED</code> o <code>COMPENSATED</code> y el detalle de cada paso.</p></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Cómo se evalúa</h3>
+    <p>Sustentación oral individual. Cada pregunta del profesor vale <b>todo o nada</b> (correcta = 100 %, incorrecta = 0 %). La nota de cada capa es la proporción de respuestas correctas por el peso de la capa. También pedirá demos en vivo, como forzar un fallo en la SAGA o mostrar versiones del estado en S3.</p>
+    <p>Tu proyecto corre <b>todo local</b>: Floci (emulador de AWS, permitido en la sección 2.4 del PDF) dentro de Kubernetes de Docker Desktop. Costo 0 USD.</p>
+  </div>
+</section>
+
+<!-- ========== 2 ARQUITECTURA ========== -->
+<section class="view" id="v-arquitectura" hidden>
+  <div class="panel">
+    <h2>Arquitectura</h2>
+    <p class="lead">Haz clic en cada pieza para ver qué hace, en qué archivo está y qué te pueden preguntar.</p>
+    <div class="arch">
+      <div class="diagram" id="diagram">
+        <div class="tier-label">Usuario</div>
+        <div class="tier"><button class="node" data-n="frontend">Frontend React + nginx<small>:30080 / :30081 / :30082</small></button></div>
+        <div class="arrow">↓ HTTP /graphql</div>
+        <div class="box">
+          <div class="tier-label">Kubernetes · un namespace por ambiente (aegisvolt-dev | test | prod)</div>
+          <div class="tier"><button class="node" data-n="gateway">graphql-gateway<small>agregación + orquestador SAGA</small></button></div>
+          <div class="arrow">↓ HTTP interno (circuit breaker + bulkhead)</div>
+          <div class="tier">
+            <button class="node" data-n="reservation">station-reservation<small>paso 1</small></button>
+            <button class="node" data-n="billing">billing-wallet<small>paso 2</small></button>
+            <button class="node" data-n="dispatch">energy-dispatch<small>paso 3</small></button>
+          </div>
+          <div class="arrow">↓ boto3 (AWS_ENDPOINT_URL → Floci)</div>
+          <div class="tier-label">aegisvolt-platform</div>
+          <div class="tier"><button class="node db" data-n="floci">Floci (AWS local)<small>PVC floci-data 2 Gi</small></button><button class="node obs" data-n="jaeger">Jaeger<small>trazas :30686</small></button></div>
+        </div>
+        <div class="arrow">↓ dentro de Floci, creado por Terraform</div>
+        <div class="tier">
+          <button class="node db" data-n="dynamo">DynamoDB ×5 por ambiente<small>reservations, billing, dispatch, sagas, flags</small></button>
+          <button class="node db" data-n="network">VPC + VPCE + API Gateway<small>red privada</small></button>
+          <button class="node db" data-n="s3">S3 tfstate versionado<small>env:/dev|test|prod/</small></button>
+          <button class="node obs" data-n="cloudwatch">CloudWatch Logs<small>/aegisvolt/&lt;env&gt;/&lt;svc&gt;</small></button>
+        </div>
+        <div class="arrow">· fuera del clúster ·</div>
+        <div class="tier">
+          <button class="node obs" data-n="prefect">Prefect<small>:4200 salud + auditoría</small></button>
+          <button class="node ci" data-n="actions">GitHub Actions<small>pr-checks + deploy</small></button>
+        </div>
+      </div>
+      <div class="panel detail" id="detail" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Stack tecnológico</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>Capa</th><th>Pide el PDF</th><th>Usa tu proyecto</th></tr></thead>
+      <tbody>
+        <tr><td>Frontend</td><td>Cualquier framework</td><td>React (Vite) servido por nginx</td></tr>
+        <tr><td>API</td><td>API Gateway + GraphQL</td><td>FastAPI + Strawberry GraphQL; API Gateway PRIVATE en Floci</td></tr>
+        <tr><td>Microservicios</td><td>3 en Docker sobre Kubernetes</td><td>3 servicios + gateway, Python 3.12, Helm chart</td></tr>
+        <tr><td>Base de datos</td><td>DynamoDB, una por servicio</td><td>DynamoDB en Floci, 5 tablas por ambiente</td></tr>
+        <tr><td>IaC</td><td>Terraform + S3 versionado + workspaces</td><td>Terraform ≥ 1.10, módulos network / dynamodb / observability / apigateway</td></tr>
+        <tr><td>Observabilidad</td><td>CloudWatch + Prefect</td><td>CloudWatch (Floci), Prefect 3, extra: OpenTelemetry + Jaeger</td></tr>
+        <tr><td>CI/CD</td><td>Tests + plan en PR, apply + canary al fusionar</td><td>GitHub Actions con runner self-hosted, <code>scripts/deploy.sh</code></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ========== 3 SAGA ========== -->
+<section class="view" id="v-saga" hidden>
+  <div class="panel">
+    <h2>Simulador de la SAGA «Reservar y Activar Carga»</h2>
+    <p class="lead">Reproduce lo que hace <code>services/gateway/saga.py</code>. Elige un escenario y ejecútalo: verás los pasos, las compensaciones, las tablas DynamoDB y los logs con su <code>correlation_id</code>.</p>
+    <div class="row" style="margin-bottom:14px">
+      <label class="toggle"><input type="checkbox" id="fFault"> SIMULATE_CHARGER_HARDWARE_FAULT</label>
+      <label class="toggle"><input type="checkbox" id="fFunds"> Fondos insuficientes</label>
+      <label class="toggle"><input type="checkbox" id="fSurge" checked> ENABLE_DYNAMIC_SURGE_PRICING</label>
+      <button class="btn primary" id="runSaga">Ejecutar SAGA</button>
+      <button class="btn" id="resetSaga">Reiniciar</button>
+    </div>
+    <div class="saga-steps" id="steps"></div>
+    <p class="result" id="sagaResult" style="margin-top:14px">Estado: listo para ejecutar</p>
+    <div class="tables" id="tables"></div>
+    <h3 style="margin-top:14px">Logs JSON (lo que verías en CloudWatch)</h3>
+    <div class="log" id="log" aria-live="polite"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Reglas clave para la sustentación</h3>
+    <div class="grid">
+      <div class="card"><span class="k">Tipo</span><b>Orquestación</b><p>Un coordinador central (el gateway) llama a cada servicio en orden. Se eligió porque el flujo es corto, el orden importa y el estado queda en un solo lugar (<code>aegisvolt-sagas-&lt;env&gt;</code>).</p></div>
+      <div class="card"><span class="k">Orden inverso</span><b>Compensar al revés</b><p>Si falla el paso 3: primero <code>refund</code> en billing y después <code>release</code> en reservation. Si falla el paso 2: solo <code>release</code>.</p></div>
+      <div class="card"><span class="k">Reintentos</span><b>Hasta 3 veces</b><p>Solo ante fallos transitorios (red, 5xx). Si una compensación agota los intentos queda <code>COMPENSATION_FAILED</code> y Prefect lo reporta.</p></div>
+    </div>
+    <h3 style="margin-top:18px">Idempotencia: hacerlo 2 veces = hacerlo 1 vez</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>Operación</th><th>Cómo se garantiza en DynamoDB</th></tr></thead>
+      <tbody>
+        <tr><td><code>reserve</code></td><td><code>ConditionExpression: status = AVAILABLE OR saga_id = :mi_saga</code></td></tr>
+        <tr><td><code>charge</code></td><td>Transacción: <code>Put TXN#&lt;saga&gt;#CHARGE</code> con <code>attribute_not_exists(pk)</code> + descuento. Si el TXN ya existe, se cancela todo.</td></tr>
+        <tr><td><code>refund</code></td><td>Igual, con <code>TXN#&lt;saga&gt;#REFUND</code>: solo puede existir uno.</td></tr>
+        <tr><td><code>release</code></td><td><code>saga_id = :mi_saga</code>; si ya se liberó responde <code>ALREADY_RELEASED</code>.</td></tr>
+        <tr><td><code>start</code></td><td><code>attribute_not_exists(session_id)</code> con <code>session_id = saga_id</code>.</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin-top:10px">La llave es el <code>saga_id</code> y se aplica en la base de datos, no en memoria, así que funciona con varias réplicas. Lo prueba <code>test_compensations_are_idempotent</code>.</p>
+  </div>
+</section>
+
+<!-- ========== 4 FLAGS ========== -->
+<section class="view" id="v-flags" hidden>
+  <div class="panel">
+    <h2>Feature flags por ambiente</h2>
+    <p class="lead">Cada ambiente tiene su propia tabla <code>aegisvolt-flags-&lt;env&gt;</code>. Cambia un interruptor: solo afecta a esa columna. Así respondes la pregunta «cambie una flag en dev sin redesplegar y muestre que prod sigue intacto».</p>
+    <div class="tscroll"><table id="flagTable">
+      <thead><tr><th>Flag</th><th class="env-dev">dev</th><th class="env-test">test</th><th class="env-prod">prod</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="grid" style="margin-top:16px" id="flagEffects"></div>
+  </div>
+  <div class="panel">
+    <h3>¿Por qué no hace falta redesplegar?</h3>
+    <p>Los servicios leen la flag desde DynamoDB en cada request, con una caché de 3 segundos (<code>services/common.py</code>). Terraform crea los valores iniciales en <code>infra/modules/dynamodb/seed.tf</code> (surge en <code>true</code> para dev y test, <code>false</code> en prod) y usa <code>ignore_changes = [item]</code> para no revertir los cambios hechos en caliente.</p>
+    <pre><code>aws dynamodb update-item --table-name aegisvolt-flags-dev --key file://flagkey.json --update-expression "SET enabled = :e" --expression-attribute-values file://flagval.json</code></pre>
+  </div>
+</section>
+
+<!-- ========== 5 CI/CD ========== -->
+<section class="view" id="v-cicd" hidden>
+  <div class="panel">
+    <h2>Gobernanza de Git y promoción</h2>
+    <p class="lead">El código solo avanza en una dirección y siempre por Pull Request. Haz clic en cada rama.</p>
+    <div class="chain" id="chain">
+      <button class="br c-blue" data-b="feature">feature/*</button><span class="arrow-h">— PR →</span>
+      <button class="br env-dev" data-b="dev">dev</button><span class="arrow-h">— PR →</span>
+      <button class="br env-test" data-b="test">test</button><span class="arrow-h">— PR →</span>
+      <button class="br env-prod" data-b="prod">prod</button>
+    </div>
+    <div id="branchInfo" style="margin-top:14px" aria-live="polite"></div>
+    <div class="note" style="margin-top:14px">El job <code>promotion-guard</code> rechaza cualquier PR que no sea <code>feature/*|fix/* → dev</code>, <code>dev → test</code> o <code>test → prod</code>. Por ejemplo <code>feature/x → prod</code> no se puede fusionar.</div>
+  </div>
+
+  <div class="panel">
+    <h3>Pipeline</h3>
+    <p><b>Antes del merge</b> (<code>.github/workflows/pr-checks.yml</code>, en cada PR). Los 6 deben estar en verde:</p>
+    <div class="pipeline">
+      <div class="job"><b>promotion-guard</b>Valida el origen y destino del PR.</div>
+      <div class="job"><b>lint-build</b>Compila, construye imágenes Docker, exporta el esquema GraphQL, helm lint.</div>
+      <div class="job"><b>unit-tests</b>Lógica de negocio y compensaciones SAGA.</div>
+      <div class="job"><b>integration-tests</b>Contra tablas DynamoDB y GraphQL.</div>
+      <div class="job"><b>e2e-tests</b>Flujo completo desde la API.</div>
+      <div class="job"><b>terraform-plan</b>Workspace = <code>github.base_ref</code> (rama destino).</div>
+    </div>
+    <p style="margin-top:14px"><b>Después del merge</b> (<code>.github/workflows/deploy.yml</code>): <code>ENVIRONMENT: ${{ github.ref_name }}</code> → <code>terraform workspace select -or-create "$ENVIRONMENT"</code> → <code>terraform apply -auto-approve</code> → <code>scripts/deploy.sh</code> (canary).</p>
+  </div>
+
+  <div class="panel">
+    <h3>Canary deployment</h3>
+    <p>El Service de Kubernetes selecciona solo por <code>app=&lt;svc&gt;</code>, así que reparte el tráfico según el número de pods: 4 stable + 1 canary ≈ 20 %. Prueba los dos resultados:</p>
+    <div class="canary" id="canaryBar"><div class="stable" style="flex-basis:100%">stable v1 · 100 %</div><div class="can" style="flex-basis:0%"></div></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" id="canOk">Desplegar canary sano</button>
+      <button class="btn" id="canBad">Desplegar canary con errores</button>
+    </div>
+    <div class="log" id="canLog" style="margin-top:12px"></div>
+    <p style="margin-top:12px"><b>Condiciones para pasar de 20 % a 100 %</b> (todas, en <code>canary_healthy</code>): pods canary pasan readiness <code>/health</code>, 0 reinicios, 0 respuestas no-200 en 40 consultas GraphQL, y errores <code>level=ERROR</code> en CloudWatch del canary ≤ 0. Si algo falla: <code>helm rollback</code>.</p>
+  </div>
+</section>
+
+<!-- ========== 6 RÚBRICA ========== -->
+<section class="view" id="v-rubrica" hidden>
+  <div class="panel">
+    <h2>Rúbrica oficial, capa por capa</h2>
+    <p class="lead">Abre cada capa para ver qué evalúa, las preguntas del banco del PDF, la respuesta y la demo. Marca las que ya dominas: la nota estimada se calcula igual que el profesor (correctas ÷ total × peso). Se guarda en este navegador.</p>
+    <div id="layers" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</section>
+
+<!-- ========== 7 GLOSARIO ========== -->
+<section class="view" id="v-glosario" hidden>
+  <div class="panel">
+    <h2>Glosario</h2>
+    <p class="lead">Los términos que vas a usar en la sustentación, explicados en simple y con dónde aparecen en tu código.</p>
+    <input class="search" id="glSearch" type="search" placeholder="Buscar término (ej. idempotencia, VPCE, canary)" aria-label="Buscar en el glosario">
+    <p id="glCount" style="margin:10px 0 6px;color:var(--muted);font-size:13px"></p>
+    <dl class="gl" id="gl"></dl>
+  </div>
+</section>
+
+<!-- ========== 8 PENDIENTES ========== -->
+<section class="view" id="v-pendientes" hidden>
+  <div class="panel">
+    <h2>¿Qué te falta?</h2>
+    <p class="lead">Revisé tu repositorio el 23 de noviembre de 2026. El código, la infraestructura y los tests están completos y verificados en tu PC. Lo que falta es la parte de <b>GitHub</b> (ramas, reglas, runner, PRs) y dejar todo listo para la demo. Marca lo que vayas terminando.</p>
+    <div class="row" style="justify-content:space-between;margin-bottom:6px"><b id="todoTxt">0 de 0 listos</b><span class="chip c-bad">alta = afecta nota</span></div>
+    <div class="progress"><i id="todoBar"></i></div>
+  </div>
+  <div class="panel">
+    <h3>Lo que encontré en el repositorio</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>Revisión</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td>Ramas remotas en GitHub</td><td><span class="chip c-bad">solo main</span> No existen <code>dev</code>, <code>test</code> ni <code>prod</code> en origin.</td></tr>
+        <tr><td>Cambios locales sin commit</td><td><span class="chip c-warn">pendiente</span> <code>frontend/index.html</code> y <code>frontend/src/style.css</code></td></tr>
+        <tr><td>Pull Requests</td><td><span class="chip c-bad">ninguno</span> No hay cadena feature → dev → test → prod en el historial.</td></tr>
+        <tr><td>Runner self-hosted</td><td><span class="chip c-bad">sin registrar</span> Según tu README, los workflows no se han probado en GitHub.</td></tr>
+        <tr><td>GitHub CLI (<code>gh</code>)</td><td><span class="chip c-warn">no instalado</span> No pude consultar las reglas del repo.</td></tr>
+        <tr><td>Código, Terraform, Helm, tests</td><td><span class="chip c-ok">completo</span> Verificado localmente según el README (sección 9).</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="panel">
+    <h3>Lista de tareas en orden</h3>
+    <div class="todo" id="todo"></div>
+  </div>
+</section>
+
+</div></main>
+<footer><div class="wrap">Basado en «Proyecto Final - Patrones Arquitectónicos Avanzados (AegisVolt)» y en el repositorio Proyecto_final_Patrones.</div></footer>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+/* ---------- Pestañas ---------- */
+const VIEWS=['inicio','arquitectura','saga','flags','cicd','rubrica','glosario','pendientes'];
+function route(){const h=location.hash.slice(1);const v=VIEWS.includes(h)?h:'inicio';
+  VIEWS.forEach(n=>$('#v-'+n).hidden=n!==v);
+  $$('#tabs a').forEach(a=>a.toggleAttribute('aria-current',a.getAttribute('href')==='#'+v)||a.setAttribute('aria-current','page'));
+  $$('#tabs a').forEach(a=>{if(a.getAttribute('href')==='#'+v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+}
+addEventListener('hashchange',()=>{route();scrollTo(0,0)});route();
+
+/* ---------- Arquitectura ---------- */
+const NODES={
+ frontend:{t:'Frontend (capa de presentación)',d:'Aplicación React servida por nginx. Hay uno por ambiente, con color propio: dev verde (:30080), test naranja (:30081), prod rojo (:30082). nginx reenvía /graphql al gateway de su mismo namespace. Tiene los 4 paneles que pide el PDF: estaciones en tiempo real, reserva (dispara la SAGA), flags del ambiente e historial de sagas.',f:['frontend/src/main.jsx','frontend/nginx.conf','frontend/Dockerfile (multi-stage)'],q:'Muestre cómo cambia el frontend de dev al apagar una flag mientras prod sigue igual.'},
+ gateway:{t:'graphql-gateway',d:'Punto de entrada único: un esquema GraphQL que agrega los 3 servicios. Queries: environment, stations, featureFlags, sagas, wallets, telemetry. Mutations: reserveAndCharge, releaseConnector, setFeatureFlag. También es el orquestador de la SAGA y aplica circuit breaker, bulkhead y fallback a cada llamada.',f:['services/gateway/main.py','services/gateway/saga.py','services/gateway/resilience.py'],q:'¿Cómo diseñó el esquema GraphQL? ¿Por qué orquestación y no coreografía?'},
+ reservation:{t:'station-reservation-service',d:'Maneja la disponibilidad de conectores. Paso 1: AVAILABLE → RESERVED. Compensación: release (vuelve a AVAILABLE). Al final de una saga exitosa confirma RESERVED → CHARGING. Solo escribe en aegisvolt-reservations-<env>.',f:['services/reservation/main.py'],q:'¿Qué evita que dos flotas reserven el mismo conector?'},
+ billing:{t:'billing-wallet-service',d:'Billetera de cada flota. Paso 2: cobra con una transacción DynamoDB que también guarda TXN#<saga>#CHARGE. Compensación: refund con TXN#<saga>#REFUND. Aplica la flag ENABLE_DYNAMIC_SURGE_PRICING (cobra ×1.5).',f:['services/billing/main.py'],q:'¿Cómo evita el doble cobro o el doble reembolso?'},
+ dispatch:{t:'energy-dispatch-service',d:'Enciende físicamente el cargador (simulado) y registra telemetría. Paso 3. Con SIMULATE_CHARGER_HARDWARE_FAULT responde 503 y la SAGA compensa. Con ENABLE_FAST_CHARGE_BOOST entrega 350 kW en vez de 150 kW.',f:['services/dispatch/main.py'],q:'Active la flag de fallo en test y demuestre la compensación.'},
+ floci:{t:'Floci (AWS emulado)',d:'Emulador open source de las APIs de AWS. Corre dentro de Kubernetes en el namespace aegisvolt-platform con un PersistentVolumeClaim, así que los datos sobreviven si el pod se reinicia. Terraform usa el provider oficial de AWS con un bloque endpoints que apunta a Floci. El PDF lo permite en la sección 2.4.',f:['k8s/platform.yaml','infra/main.tf'],q:'¿Por qué Floci y no AWS real? ¿Qué no emula?'},
+ jaeger:{t:'Jaeger (trazas)',d:'Extra que no pide el PDF. Los servicios envían trazas OpenTelemetry; buscando el tag saga.id ves en una línea de tiempo cada paso, reintento y compensación. El trace_id de los logs es el mismo que el de Jaeger.',f:['services/common.py (setup_tracing)','k8s/platform.yaml'],q:'Rastree una saga fallida de extremo a extremo.'},
+ dynamo:{t:'DynamoDB (Database-per-Service)',d:'5 tablas por ambiente: aegisvolt-reservations, -billing, -dispatch (una por servicio), -sagas (log de la saga) y -flags (feature flags). El sufijo es el workspace: -dev, -test, -prod. En prod tienen deletion protection y Point-in-Time Recovery.',f:['infra/modules/dynamodb/main.tf','infra/modules/dynamodb/seed.tf'],q:'¿Cómo garantiza que apply en test no toque las tablas de prod?'},
+ network:{t:'VPC, subredes, VPCE y API Gateway',d:'Una VPC por ambiente (10.10/10.20/10.30.0.0/16) con subredes públicas y privadas. La tabla de ruteo privada no tiene 0.0.0.0/0: solo la ruta local y los Gateway Endpoints de S3 y DynamoDB. Interface Endpoints para execute-api y logs. El API Gateway es PRIVATE y su política niega todo lo que no venga del VPCE.',f:['infra/modules/network/main.tf','infra/modules/apigateway/main.tf'],q:'Explique el recorrido de un paquete del API Gateway al pod a través del VPCE.'},
+ s3:{t:'Bucket S3 del tfstate',d:'aegisvolt-tfstate-000000000000 con Versioning Enabled. Cada workspace guarda su estado en su propia llave: env:/dev/aegisvolt/terraform.tfstate, env:/test/..., env:/prod/... Con use_lockfile = true dos applies simultáneos se bloquean. El bucket se crea con un Terraform aparte (bootstrap) porque no puede guardar su propio estado antes de existir.',f:['infra/bootstrap/main.tf','infra/floci.s3.tfbackend'],q:'Muestre las versiones anteriores del tfstate de dev y cómo restauraría una.'},
+ cloudwatch:{t:'CloudWatch Logs',d:'Cada servicio escribe logs JSON con ts, level, env, service, correlation_id (= saga_id) y trace_id en el grupo /aegisvolt/<env>/<servicio>. Hay metric filters para Errors y SagaRollbacks, que usa el canary.',f:['infra/modules/observability/main.tf','services/common.py'],q:'Rastree en CloudWatch el correlation_id de una saga fallida.'},
+ prefect:{t:'Prefect',d:'Flow aegisvolt-observability con dos tasks: check_health (frontend → gateway → servicios → DynamoDB en los 3 ambientes) y audit_sagas (cuenta completadas y compensadas, y detecta huérfanas: en curso hace más de 5 min, e inconsistentes: compensadas con cobro pero sin reembolso). Publica artefactos en la UI y el run queda en rojo si hay problemas.',f:['observability/flows.py'],q:'Muestre la ejecución del flow de observabilidad en Prefect.'},
+ actions:{t:'GitHub Actions',d:'pr-checks.yml corre los 6 checks obligatorios en cada PR. deploy.yml corre al fusionar: elige el workspace por la rama, hace terraform apply y despliega con canary. Usa un runner self-hosted porque Floci y Kubernetes viven en tu PC.',f:['.github/workflows/pr-checks.yml','.github/workflows/deploy.yml','scripts/deploy.sh'],q:'Explique en el YAML cómo se decide el ambiente del terraform apply.'}
+};
+function showNode(k){const n=NODES[k];$$('.node').forEach(b=>b.classList.toggle('sel',b.dataset.n===k));
+ $('#detail').innerHTML=`<span class="eyebrow">Componente</span><h3>${n.t}</h3><p>${esc(n.d)}</p><span class="eyebrow">Archivos</span><div class="files">${n.f.map(f=>`<code>${esc(f)}</code>`).join('')}</div><p style="margin-top:12px"><span class="eyebrow">Pregunta probable</span><br>${esc(n.q)}</p>`}
+$('#diagram').addEventListener('click',e=>{const b=e.target.closest('.node');if(b)showNode(b.dataset.n)});showNode('gateway');
+
+/* ---------- SAGA ---------- */
+const STEPS=[['1','RESERVE','reservation'],['2','CHARGE','billing'],['3','START_CHARGER','dispatch'],['4','CONFIRM','reservation']];
+let db,running=false;
+function freshDb(){return{conn:'AVAILABLE',balance:500,txns:[],session:'—',saga:'—'}}
+function renderSteps(states={}){$('#steps').innerHTML=STEPS.map(([n,name,svc])=>{const s=states[name]||'';return`<div class="step ${s.split(' ')[0]}"><span class="n">Paso ${n} · ${svc}</span><b>${name}</b><span class="st">${{run:'ejecutando…',done:'✔ OK',fail:'✘ falló','comp':'↺ compensado'}[s.split(' ')[0]]||'pendiente'}</span></div>`}).join('')}
+function renderDb(){$('#tables').innerHTML=`
+ <div class="tbl"><div class="t">aegisvolt-reservations-test</div>CP-01 · status = <b>${db.conn}</b></div>
+ <div class="tbl"><div class="t">aegisvolt-billing-test</div>fleet-rapiexpress · balance = <b>${db.balance.toFixed(2)}</b>${db.txns.map(t=>`<br>${t}`).join('')}</div>
+ <div class="tbl"><div class="t">aegisvolt-dispatch-test</div>session = ${db.session}</div>
+ <div class="tbl"><div class="t">aegisvolt-sagas-test</div>status = <b>${db.saga}</b></div>`}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function log(svc,level,event,extra=''){const cls={ERROR:'e',WARNING:'w',INFO:'i'}[level];
+ $('#log').innerHTML+=`<span class="${cls}">{"level":"${level}","env":"test","service":"${svc}","correlation_id":"${sagaId}","event":"${event}"${extra}}</span>\n`;$('#log').scrollTop=1e9}
+let sagaId='';
+function resetSaga(){db=freshDb();renderSteps();renderDb();$('#log').textContent='';$('#sagaResult').textContent='Estado: listo para ejecutar';$('#sagaResult').style.color=''}
+async function runSaga(){if(running)return;running=true;$('#runSaga').disabled=true;resetSaga();
+ sagaId='saga-'+Math.random().toString(16).slice(2,10);const st={};const set=(k,v)=>{st[k]=v;renderSteps(st)};
+ const fault=$('#fFault').checked,funds=$('#fFunds').checked,surge=$('#fSurge').checked;const amount=40*1.2*(surge?1.5:1);
+ db.saga='STARTED';renderDb();log('graphql-gateway','INFO','saga_started',`,"kwh":40`);await sleep(500);
+ set('RESERVE','run');await sleep(600);db.conn='RESERVED';set('RESERVE','done');renderDb();log('station-reservation-service','INFO','connector_reserved');await sleep(500);
+ set('CHARGE','run');await sleep(600);
+ if(funds){set('CHARGE','fail');log('billing-wallet-service','WARNING','insufficient_funds');await sleep(500);
+   log('graphql-gateway','INFO','compensating',`,"failed_step":"CHARGE"`);await sleep(500);
+   db.conn='AVAILABLE';set('RESERVE','comp');renderDb();log('station-reservation-service','INFO','connector_released');
+   db.saga='COMPENSATED';renderDb();log('graphql-gateway','INFO','saga_rolled_back');finish('COMPENSATED: falló el cobro, se liberó el conector','--warn');return}
+ db.balance-=amount;db.txns.push(`TXN#${sagaId}#CHARGE ${amount.toFixed(2)}`);set('CHARGE','done');renderDb();log('billing-wallet-service','INFO','wallet_charged',`,"amount":${amount.toFixed(2)},"surge":${surge}`);await sleep(500);
+ set('START_CHARGER','run');
+ if(fault){for(let i=1;i<=3;i++){await sleep(450);log('energy-dispatch-service','WARNING','charger_hardware_fault',`,"attempt":${i},"http":503`)}
+   set('START_CHARGER','fail');await sleep(400);log('graphql-gateway','INFO','compensating',`,"failed_step":"START_CHARGER"`);await sleep(500);
+   db.balance+=amount;db.txns.push(`TXN#${sagaId}#REFUND ${amount.toFixed(2)}`);set('CHARGE','comp');renderDb();log('billing-wallet-service','INFO','wallet_refunded');await sleep(500);
+   db.conn='AVAILABLE';set('RESERVE','comp');renderDb();log('station-reservation-service','INFO','connector_released');
+   db.saga='COMPENSATED';renderDb();log('graphql-gateway','INFO','saga_rolled_back');finish('COMPENSATED: el cargador falló, se reembolsó y se liberó el conector','--warn');return}
+ await sleep(600);db.session=sagaId+' · ACTIVE · 150 kW';set('START_CHARGER','done');renderDb();log('energy-dispatch-service','INFO','charger_started',`,"power_kw":150`);await sleep(500);
+ set('CONFIRM','run');await sleep(500);db.conn='CHARGING';set('CONFIRM','done');db.saga='COMPLETED';renderDb();log('graphql-gateway','INFO','saga_completed');
+ finish('COMPLETED: el vehículo está cargando','--ok')}
+function finish(t,c){$('#sagaResult').textContent='Estado: '+t;$('#sagaResult').style.color=`var(${c})`;running=false;$('#runSaga').disabled=false}
+$('#runSaga').onclick=runSaga;$('#resetSaga').onclick=()=>{if(!running)resetSaga()};resetSaga();
+
+/* ---------- Flags ---------- */
+const FLAGS={ENABLE_DYNAMIC_SURGE_PRICING:{dev:true,test:true,prod:false,e:'billing cobra ×1.5 en horas pico'},ENABLE_FAST_CHARGE_BOOST:{dev:true,test:false,prod:false,e:'dispatch entrega 350 kW en vez de 150 kW'},SIMULATE_CHARGER_HARDWARE_FAULT:{dev:false,test:false,prod:false,e:'dispatch responde 503 y la SAGA compensa'}};
+function renderFlags(){$('#flagTable tbody').innerHTML=Object.entries(FLAGS).map(([k,v])=>`<tr><td><code>${k}</code><br><small style="color:var(--muted)">${v.e}</small></td>${['dev','test','prod'].map(env=>`<td><div class="flagcell"><input type="checkbox" class="sw" aria-label="${k} en ${env}" data-f="${k}" data-e="${env}" ${v[env]?'checked':''}></div></td>`).join('')}</tr>`).join('');
+ const price=env=>(40*1.2*(FLAGS.ENABLE_DYNAMIC_SURGE_PRICING[env]?1.5:1)).toFixed(2);
+ $('#flagEffects').innerHTML=['dev','test','prod'].map(env=>`<div class="card"><span class="k env-${env}">frontend de ${env}</span><b>Reserva de 40 kWh = ${price(env)}</b><span>Potencia: ${FLAGS.ENABLE_FAST_CHARGE_BOOST[env]?'350':'150'} kW</span><span>Resultado de la SAGA: ${FLAGS.SIMULATE_CHARGER_HARDWARE_FAULT[env]?'<span class="chip c-warn">COMPENSATED</span>':'<span class="chip c-ok">COMPLETED</span>'}</span></div>`).join('')}
+$('#flagTable').addEventListener('change',e=>{const i=e.target;if(i.dataset.f){FLAGS[i.dataset.f][i.dataset.e]=i.checked;renderFlags()}});renderFlags();
+
+/* ---------- CI/CD ---------- */
+const BR={feature:'<h3>feature/*</h3><p>Se crea desde <code>dev</code> (<code>git checkout -b feature/algo</code>). Es donde trabajas. Abres un PR hacia <code>dev</code>; nunca hacia test ni prod.</p>',
+ dev:'<h3 class="env-dev">dev</h3><p>Recibe PRs de <code>feature/*</code> o <code>fix/*</code>. Al fusionar: workspace <code>dev</code>, tablas <code>*-dev</code>, VPC 10.10.0.0/16, namespace <code>aegisvolt-dev</code>, frontend :30080.</p>',
+ test:'<h3 class="env-test">test</h3><p>Solo recibe PRs con origen <code>dev</code>. Al fusionar: workspace <code>test</code>, tablas <code>*-test</code>, VPC 10.20.0.0/16, frontend :30081. Aquí haces la demo del fallo de la SAGA.</p>',
+ prod:'<h3 class="env-prod">prod</h3><p>Solo recibe PRs con origen <code>test</code>. Workspace <code>prod</code>, tablas con deletion protection y PITR, VPC 10.30.0.0/16, frontend :30082.</p>'};
+const RULES='<p><b>Reglas del ruleset <code>ambientes-protegidos</code>:</b> bloquear force push, exigir PR, exigir los 6 checks en verde, impedir borrado, sin lista de bypass. Si intentas <code>git push --force origin test</code> GitHub responde <code>GH013: Repository rule violations</code>.</p>';
+$('#chain').addEventListener('click',e=>{const b=e.target.closest('.br');if(!b)return;$$('.br').forEach(x=>x.classList.toggle('sel',x===b));$('#branchInfo').innerHTML=BR[b.dataset.b]+(b.dataset.b!=='feature'?RULES:'')});
+$('.br[data-b="test"]').click();
+let canBusy=false;
+async function canary(ok){if(canBusy)return;canBusy=true;const bar=$('#canaryBar'),L=$('#canLog');L.textContent='';const st=bar.children[0],cn=bar.children[1];
+ const w=(t,c='i')=>{L.innerHTML+=`<span class="${c}">${t}</span>\n`;L.scrollTop=1e9};
+ st.style.flexBasis='100%';cn.style.flexBasis='0%';st.textContent='stable v1 · 100 %';cn.textContent='';
+ w('helm upgrade --set canaryTag=v2   (stable ×4 + canary ×1)');await sleep(700);st.style.flexBasis='80%';cn.style.flexBasis='20%';st.textContent='stable v1 · 80 %';cn.textContent='canary v2 · 20 %';await sleep(700);
+ w('readiness /health canary ........ OK');await sleep(500);
+ if(ok){w('reinicios canary ................ 0');await sleep(400);w('40 consultas GraphQL ............ 40/40 HTTP 200');await sleep(400);w('CloudWatch level=ERROR canary .... 0 (umbral 0)');await sleep(500);
+   w('✔ canary sano → helm upgrade --set stableTag=v2');st.style.flexBasis='100%';cn.style.flexBasis='0%';st.textContent='stable v2 · 100 %';cn.textContent=''}
+ else{w('reinicios canary ................ 2','w');await sleep(400);w('40 consultas GraphQL ............ 33/40 HTTP 200','e');await sleep(400);w('CloudWatch level=ERROR canary .... 7 (umbral 0)','e');await sleep(500);
+   w('✘ canary no sano → helm rollback (stable nunca se tocó), job en rojo','e');st.style.flexBasis='100%';cn.style.flexBasis='0%';st.textContent='stable v1 · 100 %';cn.textContent=''}
+ canBusy=false}
+$('#canOk').onclick=()=>canary(true);$('#canBad').onclick=()=>canary(false);
+
+/* ---------- Rúbrica ---------- */
+const LAYERS=[
+ {id:'iac',n:'Infraestructura como Código',w:30,crit:['Workspaces dev/test/prod','tfstate versionado en S3','VPC + VPCE hacia APIGW/K8s','DynamoDB por servicio y ambiente'],qs:[
+  {q:'¿Cómo garantiza que terraform apply en test no sobrescriba las tablas DynamoDB ni el estado de prod en S3?',a:'<ol><li><b>Estado separado:</b> cada workspace se guarda en su propia llave: <code>env:/test/aegisvolt/terraform.tfstate</code> vs <code>env:/prod/...</code>. El apply de test ni lee el estado de prod.</li><li><b>Nombres separados:</b> todo usa <code>terraform.workspace</code> (<code>local.env</code> en <code>infra/main.tf</code>): <code>aegisvolt-billing-test</code> ≠ <code>aegisvolt-billing-prod</code>.</li><li><b>El CI elige el workspace por la rama</b>, no una persona.</li><li><b>Guardia:</b> <code>terraform_data.workspace_guard</code> falla si el workspace no es dev/test/prod.</li><li><b>Bloqueo</b> con <code>use_lockfile = true</code>.</li><li>Prod: <code>deletion_protection_enabled</code> + PITR.</li></ol>'},
+  {q:'Muestre en S3 las versiones anteriores del tfstate de dev y cómo restauraría la previa.',a:'<pre><code>aws s3api list-object-versions --bucket aegisvolt-tfstate-000000000000 --prefix "env:/dev/aegisvolt/terraform.tfstate" --query "Versions[].[VersionId,LastModified,IsLatest]" --output table</code></pre>Restaurar = copiar la versión vieja encima (queda como la más reciente, no se pierde nada):<pre><code>aws s3api copy-object --bucket aegisvolt-tfstate-000000000000 --key "env:/dev/aegisvolt/terraform.tfstate" --copy-source "aegisvolt-tfstate-000000000000/env:/dev/aegisvolt/terraform.tfstate?versionId=&lt;ID&gt;"</code></pre>Luego <code>terraform workspace select dev; terraform plan</code> para verificar.'},
+  {q:'Explique el recorrido de un paquete desde API Gateway hasta el pod a través del VPCE y qué tabla de ruteo o política interviene.',a:'<ol><li>El cliente dentro de la VPC resuelve <code>&lt;api-id&gt;.execute-api...</code>; el Interface Endpoint con <b>private DNS</b> lo resuelve a IPs privadas.</li><li><b>Security Group</b> <code>aegisvolt-&lt;env&gt;-vpce-sg</code>: solo TCP 443 desde el CIDR de la VPC.</li><li>API <b>PRIVATE</b> asociado al VPCE; su <b>resource policy</b> niega si <code>aws:SourceVpce</code> no es ese endpoint.</li><li>Integración <code>/graphql</code> → Service <code>gateway</code> (en EKS: VPC Link → NLB interno → NodePort, SG <code>k8s-nodes-sg</code>) → pod.</li><li><b>Tabla de ruteo privada</b> <code>aegisvolt-&lt;env&gt;-private-rt</code>: solo ruta local + prefix lists de los Gateway Endpoints de S3 y DynamoDB, <b>sin 0.0.0.0/0</b>.</li></ol>'}]},
+ {id:'cicd',n:'CI/CD, Git, ambientes y Canary',w:25,crit:['Bloqueo de force push y push directo','Promoción feature→dev→test→prod','Tests + terraform plan en PR','Apply dinámico por rama','Canary en Kubernetes'],qs:[
+  {q:'Intente un git push --force o push directo a test y muestre qué regla lo bloquea.',a:'<pre><code>git checkout test; git commit --allow-empty -m "push directo"; git push origin test\ngit push --force origin test</code></pre>Respuesta: <code>GH013: Repository rule violations found for refs/heads/test</code> con «Changes must be made through a pull request» y «Cannot force-push to this branch». La regla es el ruleset <code>ambientes-protegidos</code>. Después: <code>git reset --hard origin/test</code>.<div class="note" style="margin-top:8px">Hoy esta demo no funciona: la rama test no existe en GitHub y el ruleset no está creado. Ver pestaña «Qué falta».</div>'},
+  {q:'Explique en el YAML cómo se determina el ambiente del terraform apply tras el merge.',a:'En <code>deploy.yml</code> el evento es <code>push</code> a dev|test|prod (solo puede venir de un merge porque el push directo está bloqueado). <code>ENVIRONMENT: ${{ github.ref_name }}</code> es el nombre de la rama → <code>terraform workspace select -or-create "$ENVIRONMENT"</code> → <code>terraform apply -auto-approve</code>. En el PR se usa <code>github.base_ref</code> (rama destino) para el plan.'},
+  {q:'¿Qué métrica o condición evalúa el canary antes de pasar del 20 % al 100 %?',a:'En <code>scripts/deploy.sh</code>, función <code>canary_healthy</code>; deben cumplirse todas:<ol><li><code>helm --wait</code> OK: pods canary pasan readiness <code>/health</code>.</li><li>0 reinicios de pods canary.</li><li>0 respuestas no-200 en 40 consultas GraphQL.</li><li>Errores <code>level=ERROR</code> en CloudWatch del canary ≤ <code>ERROR_THRESHOLD</code> (0).</li></ol>Pasa → <code>stableTag=&lt;nuevo&gt;</code>. Falla → <code>helm rollback</code>. El 20 % sale de 4 stable + 1 canary.'}]},
+ {id:'back',n:'Backend, GraphQL, SAGA y Feature Flags',w:25,crit:['Esquema GraphQL','Microservicios desacoplados en Docker/K8s','SAGA con compensaciones demostrables','Flags aisladas por ambiente'],qs:[
+  {q:'Active la flag de fallo en test, dispare la mutación de reserva y demuestre en DynamoDB la compensación.',a:'En :30081 marca <code>SIMULATE_CHARGER_HARDWARE_FAULT</code> y reserva. La saga sale <code>COMPENSATED</code>. Luego:<pre><code>aws dynamodb scan --table-name aegisvolt-billing-test --query "Items[].[pk.S,type.S,balance.N]" --output table\naws dynamodb scan --table-name aegisvolt-reservations-test --query "Items[].[connector_id.S,status.S]" --output table</code></pre>Billing tiene <code>TXN#&lt;saga&gt;#CHARGE</code> y <code>TXN#&lt;saga&gt;#REFUND</code> y el balance volvió; el conector está <code>AVAILABLE</code>; la saga en <code>aegisvolt-sagas-test</code> está <code>COMPENSATED</code>. Practícalo en la pestaña «SAGA en vivo».'},
+  {q:'¿Cómo evita problemas de idempotencia si una compensación se procesa dos veces?',a:'La llave de idempotencia es el <code>saga_id</code> y se aplica en DynamoDB con escrituras condicionales atómicas. El reembolso crea <code>TXN#&lt;saga&gt;#REFUND</code> con <code>attribute_not_exists(pk)</code> dentro de la misma transacción que suma el saldo: si ya existe, se cancela todo. <code>release</code> exige <code>saga_id = :mi_saga</code> y si ya se liberó responde <code>ALREADY_RELEASED</code>. Funciona con varias réplicas porque no depende de memoria. Test: <code>test_compensations_are_idempotent</code>.'},
+  {q:'¿Cómo están desacoplados los microservicios? (pregunta probable)',a:'4 imágenes Docker (<code>--build-arg SERVICE=...</code>), 4 Deployments, comunicación solo HTTP vía Services de Kubernetes, y cada servicio escribe solo en su tabla (Database-per-Service). Las NetworkPolicies limitan quién habla con quién (aunque Docker Desktop no las aplica).'}]},
+ {id:'obs',n:'Observabilidad (CloudWatch + Prefect)',w:12,crit:['Logs por ambiente y correlation_id','Flows de Prefect sobre salud y SAGA'],qs:[
+  {q:'Muestre en Prefect la ejecución del flow y rastree en CloudWatch el correlation_id de una saga fallida.',a:'Prefect: http://localhost:4200 → flow <code>aegisvolt-observability</code> → artefactos <code>aegisvolt-health</code>, <code>aegisvolt-saga-audit</code>, <code>aegisvolt-summary</code>. CloudWatch:<pre><code>foreach ($s in "graphql-gateway","station-reservation-service","billing-wallet-service","energy-dispatch-service") {\n  aws logs filter-log-events --log-group-name "/aegisvolt/test/$s" --filter-pattern \'{ $.correlation_id = "&lt;SAGA_ID&gt;" }\' --query "events[].message" --output text\n}</code></pre>Historia: saga_started → connector_reserved → wallet_charged → charger_hardware_fault → wallet_refunded → connector_released → saga_rolled_back.'},
+  {q:'¿Qué detecta la auditoría de Prefect? (pregunta probable)',a:'Sagas completadas y compensadas, <b>huérfanas</b> (en curso hace más de 5 minutos) e <b>inconsistentes</b> (compensadas con cobro pero sin reembolso). Si encuentra problemas, el run queda en rojo.'}]},
+ {id:'front',n:'Capa de presentación (Frontend)',w:8,crit:['Conectado a GraphQL en cada ambiente','Refleja flags y compensaciones en tiempo real'],qs:[
+  {q:'Cambie una flag en dev sin redesplegar y muestre cómo cambia el frontend de dev mientras prod sigue intacto.',a:'En :30080 desmarca <code>ENABLE_DYNAMIC_SURGE_PRICING</code> y reserva: el monto baja (sin ×1.5). Abre :30082 y muestra que sus flags no cambiaron. Funciona porque cada ambiente tiene su tabla <code>aegisvolt-flags-&lt;env&gt;</code> y los servicios la leen en cada request (caché 3 s). Practícalo en la pestaña «Feature flags».'},
+  {q:'¿Cómo es «tiempo real»? (pregunta probable)',a:'Polling cada 2 segundos al endpoint GraphQL, no WebSockets. Es una limitación conocida; si te lo preguntan, dilo así y explica que se podría cambiar a GraphQL Subscriptions.'}]}
+];
+let mastered=store.get('av-mastered',{});
+function score(){return LAYERS.reduce((s,L)=>s+L.w*L.qs.filter((_,i)=>mastered[L.id+i]).length/L.qs.length,0)}
+function renderLayers(){$('#layers').innerHTML=LAYERS.map(L=>{const done=L.qs.filter((_,i)=>mastered[L.id+i]).length;return`
+ <details class="layer"><summary><span class="weight">${L.w}%</span><span><h3 style="margin:0">${L.n}</h3><span style="color:var(--muted);font-size:13px">${done} de ${L.qs.length} preguntas dominadas · aporta ${(L.w*done/L.qs.length).toFixed(1)} pts</span><div class="meter"><i style="width:${100*done/L.qs.length}%"></i></div></span><span aria-hidden="true">▾</span></summary>
+ <div class="body"><div><span class="eyebrow">Lo que el profesor revisa</span><div class="crit" style="margin-top:6px">${L.crit.map(c=>`<span>${c}</span>`).join('')}</div></div>
+ ${L.qs.map((q,i)=>`<div class="q"><div class="qt"><input type="checkbox" id="q-${L.id}${i}" data-k="${L.id+i}" ${mastered[L.id+i]?'checked':''}><label for="q-${L.id}${i}">${q.q}</label></div><details><summary>Ver respuesta y demo</summary><div class="ans">${q.a}</div></details></div>`).join('')}</div></details>`}).join('');
+ const s=Math.round(score());$('#scoreTop').textContent=s}
+$('#layers').addEventListener('change',e=>{const k=e.target.dataset.k;if(!k)return;mastered[k]=e.target.checked;store.set('av-mastered',mastered);
+ const open=$$('#layers details.layer').map(d=>d.open);renderLayers();$$('#layers details.layer').forEach((d,i)=>d.open=open[i])});
+renderLayers();
+
+/* ---------- Glosario ---------- */
+const GL=[
+ ['SAGA','Patrón','Divide una operación que cruza varios servicios en transacciones locales. Si una falla, se ejecutan compensaciones para deshacer las anteriores. En tu proyecto: services/gateway/saga.py.'],
+ ['Orquestación','Patrón','Un coordinador central (el gateway) le dice a cada servicio qué hacer y cuándo compensar.'],
+ ['Coreografía','Patrón','Alternativa a la orquestación: cada servicio reacciona a eventos de los otros, sin coordinador. No se usa en tu proyecto.'],
+ ['Transacción compensatoria','Patrón','Acción de negocio que deshace un paso ya confirmado, como reembolsar un cobro. No es un rollback de base de datos.'],
+ ['Idempotencia','Patrón','Ejecutar una operación dos veces da el mismo resultado que una vez. Se logra con escrituras condicionales por saga_id.'],
+ ['ACID','Datos','Atomicidad, Consistencia, Aislamiento, Durabilidad. Las transacciones ACID no cruzan bases de datos de servicios distintos; por eso se usa SAGA.'],
+ ['Consistencia eventual','Datos','Los datos pueden estar inconsistentes un momento (cobrado pero sin carga) y terminan consistentes después de las compensaciones.'],
+ ['Database-per-Service','Patrón','Cada microservicio tiene su propia tabla y nadie más escribe en ella.'],
+ ['Escritura condicional','Datos','ConditionExpression de DynamoDB: la escritura solo ocurre si se cumple una condición. Base de la idempotencia.'],
+ ['correlation_id','Observabilidad','Identificador que viaja por todos los servicios en una saga (igual al saga_id). Permite filtrar los logs de una transacción.'],
+ ['Microservicio','Arquitectura','Servicio pequeño, desplegable por separado, con una responsabilidad. Tienes 3 + el gateway.'],
+ ['GraphQL','API','Lenguaje de consultas donde el cliente pide exactamente los campos que necesita. Queries leen, Mutations modifican.'],
+ ['Aggregation Layer','API','Capa que une varios servicios detrás de un solo esquema GraphQL. Es tu graphql-gateway.'],
+ ['Circuit Breaker','Resiliencia','Si un servicio falla mucho, deja de llamarlo por un tiempo para no saturarlo. En resilience.py.'],
+ ['Bulkhead','Resiliencia','Limita cuántas llamadas simultáneas van a cada servicio, para que uno lento no bloquee a los demás.'],
+ ['Fallback','Resiliencia','Respuesta alternativa cuando un servicio no responde (read_with_fallback).'],
+ ['Feature Flag','Despliegue','Interruptor que activa o desactiva una función sin redesplegar código. Tienes una tabla por ambiente.'],
+ ['Docker','Contenedores','Empaqueta una aplicación con todo lo que necesita en una imagen que corre igual en cualquier máquina.'],
+ ['Multi-stage build','Contenedores','Dockerfile con varias etapas: una compila (node) y otra sirve (nginx). La imagen final es más pequeña.'],
+ ['Kubernetes','Orquestación','Plataforma que ejecuta y mantiene contenedores: reinicia los caídos, reparte tráfico y escala.'],
+ ['Pod','Kubernetes','La unidad mínima de Kubernetes: uno o más contenedores que corren juntos.'],
+ ['Deployment','Kubernetes','Define cuántas réplicas de un pod deben existir y cómo actualizarlas.'],
+ ['Service','Kubernetes','Nombre y dirección estables que reparten tráfico entre los pods con cierta etiqueta.'],
+ ['Namespace','Kubernetes','Separación lógica dentro del clúster. Tienes aegisvolt-dev, -test, -prod y -platform.'],
+ ['Readiness / Liveness probe','Kubernetes','Chequeos de salud: readiness decide si el pod recibe tráfico; liveness decide si se reinicia.'],
+ ['PersistentVolumeClaim','Kubernetes','Pedido de disco que sobrevive al pod. Floci guarda ahí sus datos (floci-data).'],
+ ['NetworkPolicy','Kubernetes','Reglas de qué pod puede hablar con cuál. Docker Desktop no las aplica.'],
+ ['ConfigMap / Secret','Kubernetes','Configuración y datos sensibles que se inyectan a los pods sin meterlos en la imagen.'],
+ ['Helm','Kubernetes','Gestor de paquetes de Kubernetes. Un chart con plantillas y valores por ambiente; permite upgrade y rollback.'],
+ ['EKS','AWS','Kubernetes administrado por AWS. Tu proyecto usa Kubernetes local en su lugar.'],
+ ['Canary deployment','Despliegue','Se envía una parte pequeña del tráfico (20 %) a la versión nueva; si está sana se promueve al 100 %, si no se revierte.'],
+ ['Rollback','Despliegue','Volver a la versión anterior. Tu canary usa helm rollback.'],
+ ['IaC (Infraestructura como Código)','Infraestructura','La infraestructura se declara en archivos versionados en vez de crearse a mano en la consola.'],
+ ['Terraform','Infraestructura','Herramienta de IaC. plan muestra qué cambiará; apply lo aplica.'],
+ ['tfstate','Infraestructura','Archivo donde Terraform recuerda qué recursos creó. Se guarda en S3 con versionamiento.'],
+ ['Workspace de Terraform','Infraestructura','Estados independientes con el mismo código. Uno por ambiente: dev, test, prod.'],
+ ['Backend remoto','Infraestructura','Lugar donde se guarda el tfstate fuera de tu PC (bucket S3).'],
+ ['State locking','Infraestructura','Bloqueo que impide dos applies simultáneos sobre el mismo estado (use_lockfile).'],
+ ['Versioning de S3','AWS','El bucket guarda todas las versiones anteriores de cada archivo. Permite restaurar un tfstate dañado.'],
+ ['Floci','Infraestructura','Emulador open source de AWS que corre local. Permitido por el PDF.'],
+ ['VPC','Red','Red privada virtual en AWS. Tienes una por ambiente.'],
+ ['Subred pública / privada','Red','La pública tiene ruta a internet; la privada no.'],
+ ['Tabla de ruteo','Red','Decide a dónde va el tráfico de una subred. La privada no tiene 0.0.0.0/0.'],
+ ['Security Group','Red','Firewall a nivel de recurso: qué puertos y orígenes se permiten.'],
+ ['VPC Endpoint (VPCE)','Red','Conexión privada desde la VPC a un servicio de AWS sin salir a internet.'],
+ ['Gateway Endpoint','Red','Tipo de VPCE para S3 y DynamoDB; agrega rutas a la tabla de ruteo.'],
+ ['Interface Endpoint','Red','Tipo de VPCE que crea interfaces de red con IP privada (execute-api, logs).'],
+ ['API Gateway PRIVATE','AWS','API que solo se puede invocar desde dentro de la VPC a través del VPCE.'],
+ ['DynamoDB','AWS','Base de datos NoSQL de AWS de llave-valor. Todas tus tablas son DynamoDB.'],
+ ['PITR','AWS','Point-in-Time Recovery: restaurar una tabla DynamoDB a cualquier segundo de los últimos 35 días. Activado en prod.'],
+ ['CloudWatch Logs','Observabilidad','Servicio de AWS que guarda logs en grupos. Los tuyos: /aegisvolt/<env>/<svc>.'],
+ ['Metric filter','Observabilidad','Regla de CloudWatch que convierte logs en métricas (Errors, SagaRollbacks).'],
+ ['Log estructurado','Observabilidad','Log en JSON con campos fijos, fácil de filtrar.'],
+ ['OpenTelemetry','Observabilidad','Estándar para emitir trazas, métricas y logs. Tus servicios envían trazas a Jaeger.'],
+ ['Traza distribuida','Observabilidad','Registro de una petición a través de varios servicios, con tiempos de cada paso.'],
+ ['Prefect','Observabilidad','Orquestador de flujos en Python. Un Flow agrupa Tasks; tu flow revisa salud y audita sagas.'],
+ ['Saga huérfana','Observabilidad','Saga que quedó en curso más de 5 minutos sin terminar. Prefect la detecta.'],
+ ['CI/CD','DevOps','Integración continua (probar cada cambio) y despliegue continuo (llevarlo a un ambiente automáticamente).'],
+ ['Pull Request (PR)','Git','Solicitud para fusionar una rama en otra, con revisión y checks. En GitLab se llama Merge Request.'],
+ ['Force push','Git','git push --force reescribe la historia remota. Prohibido en dev, test y prod.'],
+ ['Ruleset / Branch protection','Git','Reglas de GitHub que bloquean push directo, force push y merges sin checks.'],
+ ['Promoción de ambientes','DevOps','Mover el código en orden feature → dev → test → prod, siempre por PR.'],
+ ['Runner self-hosted','DevOps','Máquina propia (tu PC) que ejecuta los jobs de GitHub Actions.'],
+ ['Ambiente estático','DevOps','Ambiente fijo y permanente (dev, test, prod), a diferencia de ambientes temporales por PR.']
+];
+function renderGl(){const q=$('#glSearch').value.trim().toLowerCase();const items=GL.filter(g=>!q||g.join(' ').toLowerCase().includes(q));
+ $('#gl').innerHTML=items.map(([t,c,d])=>`<div><dt>${esc(t)} <span class="chip c-blue">${c}</span></dt><dd>${esc(d)}</dd></div>`).join('');
+ $('#glCount').textContent=`${items.length} de ${GL.length} términos`}
+$('#glSearch').addEventListener('input',renderGl);renderGl();
+
+/* ---------- Pendientes ---------- */
+const TODO=[
+ ['alta','Hacer commit de los cambios del frontend','Tienes cambios sin guardar en frontend/index.html y frontend/src/style.css. Haz commit en main antes de crear las ramas.'],
+ ['alta','Crear las ramas dev, test y prod en GitHub','Hoy solo existe main. Ejecuta: git push origin main:dev main:test main:prod. Sin ellas no hay ambientes estáticos ni promoción (capa 2, 25 %).'],
+ ['alta','Registrar el runner self-hosted con la etiqueta aegisvolt','Settings → Actions → Runners → New self-hosted runner (Windows x64). Sin runner, terraform-plan y deploy quedan esperando. Déjalo corriendo con .\\run.cmd el día de la sustentación.'],
+ ['alta','Verificar que deploy.yml desplegó los 3 ambientes','Después del push de las ramas, revisa la pestaña Actions. Tu README dice que los workflows aún no se han probado en GitHub: puede haber errores que corregir.'],
+ ['alta','Crear el ruleset «ambientes-protegidos»','Settings → Rules → Rulesets: target dev, test, prod; Block force pushes; Require PR (0 aprobaciones); Require status checks (los 6 jobs); Restrict deletions; bypass vacío. Si el repo es privado necesitas GitHub Pro (Student Pack) o hacerlo público.'],
+ ['alta','Hacer la cadena de PRs feature → dev → test → prod','Crea feature/algo desde dev, abre PR a dev, espera los 6 checks en verde, fusiona. Luego PR dev → test y test → prod. Es la evidencia que revisará el profesor.'],
+ ['alta','Probar en vivo el bloqueo de push directo y force push a test','Debe salir GH013: Repository rule violations. Es una pregunta directa de la rúbrica.'],
+ ['media','Instalar GitHub CLI (gh)','winget install GitHub.cli. Sirve para revisar PRs, checks y reglas desde la terminal.'],
+ ['media','Correr Prefect y dejar runs en el historial','prefect server start y python observability/flows.py. Provoca una saga compensada antes para que salga en el artefacto aegisvolt-summary.'],
+ ['media','Ensayar la demo de la SAGA fallida en test','Activa SIMULATE_CHARGER_HARDWARE_FAULT en :30081, reserva, y muestra billing (CHARGE + REFUND), reservations (AVAILABLE) y sagas (COMPENSATED). Copia el saga_id para CloudWatch y Jaeger.'],
+ ['media','Ensayar las versiones del tfstate en S3','Haz al menos 2 applies en dev para tener varias versiones y practica list-object-versions y copy-object.'],
+ ['media','Ensayar el canary sano y el canary roto','Prueba un despliegue normal y uno con imagen inexistente para mostrar helm history y el rollback.'],
+ ['baja','Preparar respuestas a las limitaciones','Floci no filtra paquetes reales, Docker Desktop no aplica NetworkPolicies, el tiempo real es polling cada 2 s, el API Gateway no recibe tráfico del navegador. Explícalas con seguridad (README sección 9).'],
+ ['baja','Repasar el glosario y marcar las preguntas de la rúbrica','Usa la pestaña Rúbrica: cuando puedas responder cada pregunta sin mirar, márcala.']
+];
+let todoDone=store.get('av-todo',{});
+function renderTodo(){$('#todo').innerHTML=TODO.map(([p,t,w],i)=>`<div class="task p-${p} ${todoDone[i]?'done':''}"><input type="checkbox" id="t${i}" data-i="${i}" ${todoDone[i]?'checked':''}><div><label for="t${i}" class="tt">${esc(t)}</label> <span class="chip ${p==='alta'?'c-bad':p==='media'?'c-warn':'c-ok'}">${p}</span><div class="why">${esc(w)}</div></div></div>`).join('');
+ const n=TODO.filter((_,i)=>todoDone[i]).length;$('#todoTxt').textContent=`${n} de ${TODO.length} listos`;$('#todoBar').style.width=100*n/TODO.length+'%'}
+$('#todo').addEventListener('change',e=>{const i=e.target.dataset.i;if(i==null)return;todoDone[i]=e.target.checked;store.set('av-todo',todoDone);renderTodo()});renderTodo();
+</script>
