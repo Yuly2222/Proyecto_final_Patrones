@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 # npm ci: instala EXACTAMENTE el lockfile (versiones + hash de integridad).
