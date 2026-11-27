@@ -21,7 +21,7 @@ jobs:
         shell: C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -eo pipefail {0}
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with: { terraform_version: "1.10.5", terraform_wrapper: false }
       - run: terraform init -input=false -backend-config=floci.s3.tfbackend
       - name: Seleccionar workspace según la rama destino del merge
