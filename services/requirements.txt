@@ -3,7 +3,7 @@ uvicorn==0.34.0
 boto3==1.35.90
 strawberry-graphql==0.256.1
 httpx==0.28.1
-watchtower==3.3.1
+watchtower==3.4.0
 pydantic==2.10.6  # strawberry 0.256 no es compatible con pydantic>=2.11
 graphql-core==3.2.14  # ni con graphql-core 3.3
 opentelemetry-sdk==1.45.2  # trazas distribuidas -> Jaeger
