@@ -36,7 +36,7 @@ jobs:
       - name: Validar y exportar esquema GraphQL
         working-directory: services/gateway
         run: PYTHONPATH=.. python -c "from main import schema; print(schema.as_str())" > schema.graphql && cat schema.graphql
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: graphql-schema, path: services/gateway/schema.graphql }
       - name: Construir imágenes Docker
         run: |
@@ -111,5 +111,5 @@ jobs:
         run: |
           terraform plan -no-color -input=false -out=tfplan | tee plan.txt
           { echo "### terraform plan — workspace \`${{ github.base_ref }}\`"; echo '```'; tail -n 60 plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: "tfplan-${{ github.base_ref }}", path: infra/plan.txt }
